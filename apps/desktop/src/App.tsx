@@ -772,8 +772,7 @@ function App() {
               telemetry, no account.
             </p>
             <p className="muted">
-              Licensed under GPL-3.0-or-later. NextDM is an independent project and is not affiliated
-              with Internet Download Manager or Tonec Inc.
+              Licensed under GPL-3.0-or-later. NextDM is a free, independent open-source project.
             </p>
           </div>
         </Modal>

@@ -1,13 +1,10 @@
 # NextDM
 
-A free, native download manager for Linux with an IDM-style workflow: segmented
-transfers, pause/resume, browser takeover, categories and site media downloads.
+A free, native download manager for Linux: multi-connection segmented transfers,
+pause/resume, browser takeover, category filtering and site media downloads.
 No ads, no telemetry, no account.
 
-NextDM is an independent open-source project. It is not affiliated with, and
-contains no code or assets from, Internet Download Manager or Tonec Inc.
-
-![NextDM](docs/screenshot-main.png)
+![NextDM](docs/screenshots/nextdm-window.png)
 
 ## Features
 
