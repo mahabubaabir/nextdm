@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 use serde::Deserialize;
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 use crate::{configure_command, yt_dlp_path, MediaFormat, MediaInfo};
@@ -167,6 +168,20 @@ pub async fn download(
     output_dir: &Path,
     file_stem: Option<&str>,
 ) -> Result<PathBuf> {
+    download_with_progress(url, format_id, output_dir, file_stem, |_, _, _, _| {}).await
+}
+
+/// Download a media URL with yt-dlp with live progress callbacks.
+pub async fn download_with_progress<F>(
+    url: &str,
+    format_id: Option<&str>,
+    output_dir: &Path,
+    file_stem: Option<&str>,
+    mut on_progress: F,
+) -> Result<PathBuf>
+where
+    F: FnMut(u64, Option<u64>, u64, Option<u64>) + Send + 'static,
+{
     tokio::fs::create_dir_all(output_dir).await?;
 
     let template = match file_stem {
@@ -187,8 +202,7 @@ pub async fn download(
 
     let mut cmd = Command::new(yt_dlp_path());
     configure_command(&mut cmd);
-    let output = cmd
-        .arg("--no-playlist")
+    cmd.arg("--no-playlist")
         .arg("--no-warnings")
         .arg("--newline")
         .arg("--merge-output-format")
@@ -197,36 +211,108 @@ pub async fn download(
         .arg(format)
         .arg("-o")
         .arg(template)
-        .arg("--print")
-        .arg("after_move:filepath")
+        .arg("--progress-template")
+        .arg("download:PROGRESS:%(progress.downloaded_bytes)s:%(progress.total_bytes)s:%(progress.total_bytes_estimate)s:%(progress.speed)s:%(progress.eta)s")
+        .arg("--exec")
+        .arg("echo FINISHED:{}")
         .arg(url)
         .stdin(Stdio::null())
-        .output()
-        .await
-        .map_err(|error| {
-            if error.kind() == std::io::ErrorKind::NotFound {
-                MediaError::Missing
-            } else {
-                MediaError::Io(error)
-            }
-        })?;
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
 
-    if !output.status.success() {
-        let message = String::from_utf8_lossy(&output.stderr);
-        return Err(MediaError::Failed(tail(&message, 1600)));
+    let mut child = cmd.spawn().map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            MediaError::Missing
+        } else {
+            MediaError::Io(error)
+        }
+    })?;
+
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| MediaError::Failed("could not capture yt-dlp stdout".into()))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| MediaError::Failed("could not capture yt-dlp stderr".into()))?;
+
+    let stderr_handle = tokio::spawn(async move {
+        let mut reader = BufReader::new(stderr).lines();
+        let mut buffer = String::new();
+        while let Ok(Some(line)) = reader.next_line().await {
+            buffer.push_str(&line);
+            buffer.push('\n');
+            if buffer.len() > 4000 {
+                let start = buffer.len() - 4000;
+                buffer = buffer[start..].to_string();
+            }
+        }
+        buffer
+    });
+
+    let mut reader = BufReader::new(stdout).lines();
+    let mut finished_path: Option<PathBuf> = None;
+    let mut last_progress = std::time::Instant::now();
+
+    while let Ok(Some(line)) = reader.next_line().await {
+        let line = line.trim();
+        if let Some(rest) = line.strip_prefix("PROGRESS:") {
+            let parts: Vec<&str> = rest.split(':').collect();
+            if parts.len() >= 5 {
+                let downloaded = parts[0].parse::<u64>().unwrap_or(0);
+                let total = parts[1]
+                    .parse::<u64>()
+                    .ok()
+                    .or_else(|| parts[2].parse::<u64>().ok());
+                let speed = parts[3].parse::<f64>().map(|s| s as u64).unwrap_or(0);
+                let eta = parts[4].parse::<f64>().map(|e| e as u64).ok();
+
+                if last_progress.elapsed() >= std::time::Duration::from_millis(150) {
+                    on_progress(downloaded, total, speed, eta);
+                    last_progress = std::time::Instant::now();
+                }
+            }
+        } else if let Some(path_str) = line.strip_prefix("FINISHED:") {
+            let path = PathBuf::from(path_str.trim());
+            if path.is_file() {
+                finished_path = Some(path);
+            }
+        }
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let path = stdout
-        .lines()
-        .rev()
-        .map(str::trim)
-        .filter(|line| !line.is_empty())
-        .map(PathBuf::from)
-        .find(|path| path.is_file())
-        .ok_or_else(|| MediaError::Failed("yt-dlp reported success but no file was produced".into()))?;
+    let status = child.wait().await?;
+    let stderr_output = stderr_handle.await.unwrap_or_default();
 
-    Ok(path)
+    if !status.success() {
+        return Err(MediaError::Failed(tail(&stderr_output, 1600)));
+    }
+
+    if let Some(path) = finished_path {
+        return Ok(path);
+    }
+
+    // Fallback: look for newly produced files in output_dir
+    if let Ok(mut entries) = tokio::fs::read_dir(output_dir).await {
+        let mut newest: Option<(PathBuf, std::time::SystemTime)> = None;
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let path = entry.path();
+            if path.is_file() {
+                if let Ok(meta) = entry.metadata().await {
+                    if let Ok(modified) = meta.modified() {
+                        if newest.as_ref().map(|(_, m)| modified > *m).unwrap_or(true) {
+                            newest = Some((path, modified));
+                        }
+                    }
+                }
+            }
+        }
+        if let Some((path, _)) = newest {
+            return Ok(path);
+        }
+    }
+
+    Err(MediaError::Failed("yt-dlp reported success but no output file was detected".into()))
 }
 
 fn sanitize_stem(name: &str) -> String {

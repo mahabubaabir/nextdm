@@ -585,6 +585,130 @@ impl Engine {
         Ok(info)
     }
 
+    /// Create an active media download record in the store and emit an EngineEvent::Added.
+    pub fn create_media_download(
+        &self,
+        url: String,
+        file_name: String,
+        directory: PathBuf,
+    ) -> Result<DownloadInfo> {
+        let temp_path = download::temp_path_for(&directory.join(&file_name));
+        let now = Utc::now();
+        let record = DownloadRecord {
+            id: Uuid::new_v4(),
+            url,
+            final_url: None,
+            file_name: file_name.clone(),
+            directory,
+            temp_path,
+            total_size: None,
+            downloaded: 0,
+            status: DownloadStatus::Downloading,
+            resumable: false,
+            etag: None,
+            last_modified: None,
+            content_type: Some("video/mp4".to_string()),
+            category: download::classify(&file_name).to_string(),
+            error: None,
+            segments: Vec::new(),
+            headers: BTreeMap::new(),
+            cookies: None,
+            referrer: None,
+            queue_id: None,
+            priority: 3,
+            max_connections: Some(1),
+            created_at: now,
+            completed_at: None,
+        };
+
+        self.inner.save(&record)?;
+        let info = record.info();
+        self.inner.emit(EngineEvent::Added {
+            download: info.clone(),
+        });
+        Ok(info)
+    }
+
+    /// Update media download progress and broadcast EngineEvent::Progress.
+    pub fn update_media_progress(
+        &self,
+        id: Uuid,
+        downloaded: u64,
+        total: Option<u64>,
+        speed: u64,
+        eta: Option<u64>,
+    ) -> Result<()> {
+        if let Some(mut record) = self.inner.store.get(id)? {
+            record.downloaded = downloaded;
+            if total.is_some() {
+                record.total_size = total;
+            }
+            record.status = DownloadStatus::Downloading;
+            let _ = self.inner.save(&record);
+            self.inner.emit(EngineEvent::Progress {
+                id,
+                downloaded,
+                total_size: record.total_size,
+                speed,
+                eta,
+                segments: Vec::new(),
+            });
+        }
+        Ok(())
+    }
+
+    /// Mark the media download as completed with the final produced file.
+    pub fn complete_media_download(&self, id: Uuid, final_path: PathBuf) -> Result<DownloadInfo> {
+        let metadata = std::fs::metadata(&final_path)?;
+        let file_name = final_path
+            .file_name()
+            .map(|name| name.to_string_lossy().to_string())
+            .unwrap_or_else(|| "media.mp4".to_string());
+        let directory = final_path
+            .parent()
+            .map(Path::to_path_buf)
+            .unwrap_or_else(|| self.inner.default_dir.lock().clone());
+        let now = Utc::now();
+
+        let mut record = match self.inner.store.get(id)? {
+            Some(record) => record,
+            None => {
+                return self.register_completed_file(final_path, String::new());
+            }
+        };
+
+        record.file_name = file_name;
+        record.directory = directory;
+        record.total_size = Some(metadata.len());
+        record.downloaded = metadata.len();
+        record.status = DownloadStatus::Completed;
+        record.completed_at = Some(now);
+        record.error = None;
+
+        self.inner.save(&record)?;
+        let info = record.info();
+        self.inner.emit(EngineEvent::Updated {
+            download: info.clone(),
+        });
+        self.inner.emit(EngineEvent::Completed {
+            download: info.clone(),
+        });
+        Ok(info)
+    }
+
+    /// Mark the media download as failed.
+    pub fn fail_media_download(&self, id: Uuid, error_message: String) -> Result<()> {
+        if let Some(mut record) = self.inner.store.get(id)? {
+            record.status = DownloadStatus::Error;
+            record.error = Some(error_message);
+            self.inner.save(&record)?;
+            self.inner.emit(EngineEvent::Updated {
+                download: record.info(),
+            });
+        }
+        Ok(())
+    }
+
     /// Ask every active transfer to pause. Used when the app is closing.
     pub async fn shutdown(&self) {
         let controls: Vec<Control> = self.inner.controls.lock().values().cloned().collect();

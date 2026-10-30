@@ -206,30 +206,76 @@ async fn media_download(
         .map(PathBuf::from)
         .unwrap_or_else(|| state.engine.default_dir());
 
-    let _ = app.emit(
-        "media://status",
-        serde_json::json!({ "phase": "downloading", "url": url }),
-    );
+    let raw_name = file_stem
+        .clone()
+        .filter(|s| !s.trim().is_empty())
+        .unwrap_or_else(|| "video".to_string());
+    let initial_name = if raw_name.ends_with(".mp4") || raw_name.ends_with(".mkv") {
+        raw_name
+    } else {
+        format!("{raw_name}.mp4")
+    };
 
-    let path = ytdlp::download(&url, format_id.as_deref(), &directory, file_stem.as_deref())
-        .await
-        .map_err(|error| {
-            let _ = app.emit(
-                "media://status",
-                serde_json::json!({ "phase": "error", "url": url, "message": error.to_string() }),
-            );
-            error_string(error)
-        })?;
-
+    // 1. Immediately create an active downloading record in the engine so it appears in the UI
     let info = state
         .engine
-        .register_completed_file(path, url.clone())
+        .create_media_download(url.clone(), initial_name, directory.clone())
         .map_err(error_string)?;
 
-    let _ = app.emit(
-        "media://status",
-        serde_json::json!({ "phase": "finished", "url": url, "download": info }),
-    );
+    let download_id = info.id;
+    let engine = state.engine.clone();
+    let app_handle = app.clone();
+    let target_url = url.clone();
+
+    // 2. Spawn the background download with live progress streaming
+    tauri::async_runtime::spawn(async move {
+        let callback_engine = engine.clone();
+
+        let progress_cb = move |downloaded: u64, total: Option<u64>, speed: u64, eta: Option<u64>| {
+            let _ = callback_engine.update_media_progress(download_id, downloaded, total, speed, eta);
+        };
+
+        match ytdlp::download_with_progress(
+            &target_url,
+            format_id.as_deref(),
+            &directory,
+            file_stem.as_deref(),
+            progress_cb,
+        )
+        .await
+        {
+            Ok(path) => {
+                match engine.complete_media_download(download_id, path) {
+                    Ok(completed_info) => {
+                        let _ = app_handle.emit(
+                            "media://status",
+                            serde_json::json!({
+                                "phase": "finished",
+                                "url": target_url,
+                                "download": completed_info,
+                            }),
+                        );
+                    }
+                    Err(err) => {
+                        let _ = engine.fail_media_download(download_id, err.to_string());
+                    }
+                }
+            }
+            Err(err) => {
+                let error_msg = err.to_string();
+                let _ = engine.fail_media_download(download_id, error_msg.clone());
+                let _ = app_handle.emit(
+                    "media://status",
+                    serde_json::json!({
+                        "phase": "error",
+                        "url": target_url,
+                        "message": error_msg,
+                    }),
+                );
+            }
+        }
+    });
+
     Ok(info)
 }
 

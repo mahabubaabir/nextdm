@@ -183,11 +183,14 @@ async fn dispatch(app: &AppHandle, engine: &Engine, request: HostRequest) -> Hos
     }
 }
 
-fn show_main(app: &AppHandle) {
+pub fn show_main(app: &AppHandle) {
     let Some(window) = app.get_webview_window("main") else {
         return;
     };
     let _ = window.show();
     let _ = window.unminimize();
     let _ = window.set_focus();
+    let _ = window.set_always_on_top(true);
+    let _ = window.set_always_on_top(false);
+    let _ = window.request_user_attention(Some(tauri::UserAttentionType::Critical));
 }

@@ -203,6 +203,7 @@ function App() {
             if (settingsRef.current.notifications) {
               notify("success", `Completed: ${payload.download.fileName}`);
             }
+            setActiveProgressId((current) => (current === payload.download.id ? null : current));
             setCompletedDownload(payload.download);
           }
         });
@@ -456,7 +457,7 @@ function App() {
     })
       .then((info) => {
         setDownloads((current) => upsert(current, info));
-        setCompletedDownload(info);
+        setActiveProgressId(info.id);
       })
       .catch((error) => notify("error", String(error)));
   };
