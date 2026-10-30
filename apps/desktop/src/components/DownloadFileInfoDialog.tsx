@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { Modal } from "./Modal";
 import { Icon } from "./Icons";
-import { CATEGORIES, formatBytes, isProbablyUrl } from "../lib";
+import { CATEGORIES, formatBytes, isMediaSiteUrl, isProbablyUrl } from "../lib";
 import type { DownloadInfo, ProbeResult } from "../types";
 
 export function DownloadFileInfoDialog({
@@ -14,6 +14,7 @@ export function DownloadFileInfoDialog({
   onClose,
   onStart,
   onLater,
+  onOpenMediaExtractor,
 }: {
   open: boolean;
   initialUrl: string;
@@ -22,6 +23,7 @@ export function DownloadFileInfoDialog({
   onClose: () => void;
   onStart: (download: DownloadInfo) => void;
   onLater: (download: DownloadInfo) => void;
+  onOpenMediaExtractor?: (url: string) => void;
 }) {
   const [url, setUrl] = useState(initialUrl);
   const [fileName, setFileName] = useState("");
@@ -87,6 +89,12 @@ export function DownloadFileInfoDialog({
   const submit = async (startImmediately: boolean) => {
     if (!url.trim() || !isProbablyUrl(url.trim())) {
       setError("Please enter a valid HTTP or HTTPS URL.");
+      return;
+    }
+
+    if (isMediaSiteUrl(url.trim()) && onOpenMediaExtractor) {
+      onOpenMediaExtractor(url.trim());
+      onClose();
       return;
     }
 
@@ -159,6 +167,41 @@ export function DownloadFileInfoDialog({
       }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+        {isMediaSiteUrl(url) && (
+          <div
+            style={{
+              padding: "10px 12px",
+              background: "rgba(59, 130, 246, 0.12)",
+              border: "1px solid rgba(59, 130, 246, 0.3)",
+              borderRadius: "8px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "10px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px" }}>
+              <Icon name="media" size={16} />
+              <span>
+                <strong>Video Stream Detected:</strong> Use Video Extractor to download the high-quality MP4/MP3 media.
+              </span>
+            </div>
+            {onOpenMediaExtractor && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ padding: "4px 10px", fontSize: "12px", whiteSpace: "nowrap" }}
+                onClick={() => {
+                  onOpenMediaExtractor(url.trim());
+                  onClose();
+                }}
+              >
+                Open Extractor
+              </button>
+            )}
+          </div>
+        )}
+
         {error && (
           <div
             style={{

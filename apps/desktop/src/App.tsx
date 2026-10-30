@@ -21,7 +21,7 @@ import { OptionsDialog } from "./components/OptionsDialog";
 import { MediaDialog } from "./components/MediaDialog";
 import { Modal } from "./components/Modal";
 import { Icon, Logo } from "./components/Icons";
-import { DEFAULT_SETTINGS, categoryLabel, isDownloadableUrl, isProbablyUrl } from "./lib";
+import { DEFAULT_SETTINGS, categoryLabel, isDownloadableUrl, isMediaSiteUrl, isProbablyUrl } from "./lib";
 import type {
   DownloadInfo,
   EngineEvent,
@@ -100,6 +100,7 @@ function App() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<"add" | "options" | "media" | "about" | null>(null);
   const [initialUrls, setInitialUrls] = useState("");
+  const [mediaDialogUrl, setMediaDialogUrl] = useState<string>("");
   const [fileInfoUrl, setFileInfoUrl] = useState<string | null>(null);
   const [activeProgressId, setActiveProgressId] = useState<string | null>(null);
   const [completedDownload, setCompletedDownload] = useState<DownloadInfo | null>(null);
@@ -144,6 +145,7 @@ function App() {
     let disposed = false;
     let unlisten: (() => void) | undefined;
     let unlistenBrowser: (() => void) | undefined;
+    let unlistenMediaGrab: (() => void) | undefined;
 
     (async () => {
       try {
@@ -208,6 +210,14 @@ function App() {
         unlistenBrowser = await listen<DownloadInfo>("browser://download_added", (event) => {
           setActiveProgressId(event.payload.id);
         });
+
+        unlistenMediaGrab = await listen<{ url: string; title?: string }>("browser://media_grab", (event) => {
+          const { url } = event.payload;
+          if (url) {
+            setMediaDialogUrl(url);
+            setDialog("media");
+          }
+        });
       } catch {
         /* event bridge unavailable outside Tauri */
       }
@@ -217,6 +227,7 @@ function App() {
       disposed = true;
       unlisten?.();
       unlistenBrowser?.();
+      unlistenMediaGrab?.();
     };
   }, [notify]);
 
@@ -436,14 +447,17 @@ function App() {
   };
 
   const startMediaDownload = (url: string, formatId: string | null, fileStem: string) => {
-    notify("info", "Media download started. It will appear here when yt-dlp finishes.");
+    notify("info", `Downloading media: ${fileStem || "video"}...`);
     invoke<DownloadInfo>("media_download", {
       url,
       formatId,
       fileStem,
       directory: settings.defaultDir || null,
     })
-      .then((info) => notify("success", `Media saved: ${info.fileName}`))
+      .then((info) => {
+        setDownloads((current) => upsert(current, info));
+        setCompletedDownload(info);
+      })
       .catch((error) => notify("error", String(error)));
   };
 
@@ -531,7 +545,7 @@ function App() {
       items: [
         { label: "Add URL (Download File Info)…", shortcut: "Ctrl+N", onClick: () => openAdd() },
         { label: "Batch Add URLs…", onClick: () => openBatchAdd() },
-        { label: "Download Video…", onClick: () => setDialog("media") },
+        { label: "Download Video…", onClick: () => { setMediaDialogUrl(""); setDialog("media"); } },
         { separator: true },
         { label: "Open Download Folder", onClick: downloadFolder },
         { separator: true },
@@ -765,6 +779,11 @@ function App() {
         defaultDir={settings.defaultDir}
         maxConnections={settings.maxConnections}
         onClose={() => setFileInfoUrl(null)}
+        onOpenMediaExtractor={(url) => {
+          setFileInfoUrl(null);
+          setMediaDialogUrl(url);
+          setDialog("media");
+        }}
         onStart={(download) => {
           setFileInfoUrl(null);
           setActiveProgressId(download.id);
@@ -842,7 +861,12 @@ function App() {
               onClick={() => {
                 const u = clipboardDetectedUrl;
                 setClipboardDetectedUrl(null);
-                setFileInfoUrl(u);
+                if (isMediaSiteUrl(u)) {
+                  setMediaDialogUrl(u);
+                  setDialog("media");
+                } else {
+                  setFileInfoUrl(u);
+                }
               }}
             >
               Download
@@ -869,8 +893,12 @@ function App() {
 
       <MediaDialog
         open={dialog === "media"}
+        initialUrl={mediaDialogUrl}
         defaultDir={settings.defaultDir}
-        onClose={() => setDialog(null)}
+        onClose={() => {
+          setMediaDialogUrl("");
+          setDialog(null);
+        }}
         onDownload={startMediaDownload}
       />
 

@@ -153,6 +153,31 @@ export function isDownloadableUrl(url: string): boolean {
   }
 }
 
+export function isMediaSiteUrl(url: string): boolean {
+  if (!isProbablyUrl(url)) return false;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    return (
+      host.includes("youtube.com") ||
+      host.includes("youtu.be") ||
+      host.includes("facebook.com") ||
+      host.includes("fb.watch") ||
+      host.includes("instagram.com") ||
+      host.includes("tiktok.com") ||
+      host.includes("twitter.com") ||
+      host.includes("x.com") ||
+      host.includes("vimeo.com") ||
+      host.includes("dailymotion.com") ||
+      host.includes("twitch.tv") ||
+      host.includes("bilibili.com") ||
+      host.includes("soundcloud.com")
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function playCompletionSound(): void {
   try {
     const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;

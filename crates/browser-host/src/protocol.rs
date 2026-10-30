@@ -23,6 +23,8 @@ pub enum HostRequest {
         user_agent: Option<String>,
         #[serde(default)]
         headers: std::collections::BTreeMap<String, String>,
+        #[serde(default)]
+        is_media: bool,
     },
     ProbeMedia {
         url: String,

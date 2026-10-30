@@ -7,11 +7,13 @@ import type { MediaFormat, MediaInfo } from "../types";
 
 export function MediaDialog({
   open,
+  initialUrl,
   defaultDir,
   onClose,
   onDownload,
 }: {
   open: boolean;
+  initialUrl?: string;
   defaultDir: string;
   onClose: () => void;
   onDownload: (url: string, formatId: string | null, fileStem: string) => void;
@@ -24,38 +26,15 @@ export function MediaDialog({
   const [available, setAvailable] = useState<boolean | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    setUrl("");
-    setInfo(null);
-    setSelected(null);
-    setLoading(false);
-    setError("");
-    let cancelled = false;
-    invoke<boolean>("yt_dlp_available")
-      .then((value) => {
-        if (!cancelled) setAvailable(value);
-      })
-      .catch(() => {
-        if (!cancelled) setAvailable(false);
-      });
-    const timer = window.setTimeout(() => inputRef.current?.focus(), 60);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [open]);
-
-  if (!open) return null;
-
-  const analyze = async () => {
-    if (!url.trim()) return;
+  const analyze = async (targetUrl = url) => {
+    const trimmed = targetUrl.trim();
+    if (!trimmed) return;
     setLoading(true);
     setError("");
     setInfo(null);
     setSelected(null);
     try {
-      const result = await invoke<MediaInfo>("media_probe", { url: url.trim() });
+      const result = await invoke<MediaInfo>("media_probe", { url: trimmed });
       setInfo(result);
       const best = result.formats.find((format) => format.kind === "video") ?? result.formats[0];
       setSelected(best ? best.formatId : null);
@@ -65,6 +44,56 @@ export function MediaDialog({
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!open) return;
+    setInfo(null);
+    setSelected(null);
+    setLoading(false);
+    setError("");
+    let cancelled = false;
+
+    invoke<boolean>("yt_dlp_available")
+      .then((value) => {
+        if (!cancelled) setAvailable(value);
+      })
+      .catch(() => {
+        if (!cancelled) setAvailable(false);
+      });
+
+    const targetUrl = initialUrl?.trim() || "";
+    setUrl(targetUrl);
+
+    if (targetUrl) {
+      setLoading(true);
+      invoke<MediaInfo>("media_probe", { url: targetUrl })
+        .then((result) => {
+          if (cancelled) return;
+          setInfo(result);
+          const best = result.formats.find((format) => format.kind === "video") ?? result.formats[0];
+          setSelected(best ? best.formatId : null);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setError(String(err));
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    } else {
+      const timer = window.setTimeout(() => inputRef.current?.focus(), 60);
+      return () => {
+        cancelled = true;
+        window.clearTimeout(timer);
+      };
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, initialUrl]);
+
+  if (!open) return null;
 
   const startDownload = () => {
     if (!info) return;
@@ -132,7 +161,7 @@ export function MediaDialog({
           placeholder="Paste a video link"
           spellCheck={false}
         />
-        <button className="primary-button" onClick={analyze} disabled={loading || !url.trim()}>
+        <button className="primary-button" onClick={() => analyze()} disabled={loading || !url.trim()}>
           {loading ? <span className="spinner" /> : <Icon name="search" size={15} />}
           {loading ? "Analyzing…" : "Analyze"}
         </button>

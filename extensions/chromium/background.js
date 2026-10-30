@@ -65,7 +65,27 @@ function flashBadge(text) {
   }
 }
 
-async function handoff({ url, filename, referrer }) {
+function isMediaSite(url) {
+  if (!url) return false;
+  const lower = url.toLowerCase();
+  return (
+    lower.includes("youtube.com") ||
+    lower.includes("youtu.be") ||
+    lower.includes("facebook.com") ||
+    lower.includes("fb.watch") ||
+    lower.includes("instagram.com") ||
+    lower.includes("tiktok.com") ||
+    lower.includes("twitter.com") ||
+    lower.includes("x.com") ||
+    lower.includes("vimeo.com") ||
+    lower.includes("dailymotion.com") ||
+    lower.includes("twitch.tv") ||
+    lower.includes("bilibili.com") ||
+    lower.includes("soundcloud.com")
+  );
+}
+
+async function handoff({ url, filename, referrer, isMedia }) {
   const settings = await loadSettings();
   if (!settings.enabled) return false;
   if (!/^https?:/i.test(url)) return false;
@@ -74,6 +94,8 @@ async function handoff({ url, filename, referrer }) {
   let pageUrl = referrer || null;
   if (!pageUrl) pageUrl = await activeTabUrl();
 
+  const isMediaDownload = Boolean(isMedia) || isMediaSite(url) || (pageUrl && isMediaSite(pageUrl));
+
   await nativeMessage({
     type: "addDownload",
     url,
@@ -81,6 +103,7 @@ async function handoff({ url, filename, referrer }) {
     referrer: pageUrl,
     cookies,
     headers: {},
+    isMedia: isMediaDownload,
   });
   return true;
 }
@@ -97,10 +120,16 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId !== "nextdm-download") return;
-  const url = info.linkUrl || info.srcUrl;
+  const url = info.linkUrl || info.srcUrl || (tab && tab.url);
   if (!url) return;
+  const isMedia = info.mediaType === "video" || info.mediaType === "audio" || isMediaSite(url);
   try {
-    const accepted = await handoff({ url, filename: null, referrer: info.pageUrl || (tab && tab.url) });
+    const accepted = await handoff({
+      url,
+      filename: null,
+      referrer: info.pageUrl || (tab && tab.url),
+      isMedia,
+    });
     if (accepted) flashBadge("✓");
   } catch (error) {
     console.warn("NextDM handoff failed:", error);
@@ -169,6 +198,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       url: message.url,
       referrer: message.pageUrl,
       filename: message.title ? `${message.title.replace(/[\\/:*?"<>|]/g, "_")}.mp4` : null,
+      isMedia: true,
     })
       .then(() => {
         flashBadge("✓");

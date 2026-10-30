@@ -97,6 +97,29 @@ async fn handle_connection(
     Ok(())
 }
 
+fn is_media_site_url(url: &str) -> bool {
+    let lower = url.to_lowercase();
+    lower.contains("youtube.com/watch")
+        || lower.contains("youtube.com/shorts")
+        || lower.contains("youtube.com/live")
+        || lower.contains("youtu.be/")
+        || lower.contains("facebook.com/watch")
+        || lower.contains("facebook.com/reel")
+        || lower.contains("facebook.com/videos")
+        || lower.contains("fb.watch/")
+        || lower.contains("instagram.com/reel")
+        || lower.contains("instagram.com/p/")
+        || lower.contains("instagram.com/tv/")
+        || lower.contains("tiktok.com/")
+        || (lower.contains("twitter.com/") && lower.contains("/status/"))
+        || (lower.contains("x.com/") && lower.contains("/status/"))
+        || lower.contains("vimeo.com/")
+        || lower.contains("dailymotion.com/video")
+        || lower.contains("twitch.tv/videos")
+        || lower.contains("bilibili.com/video")
+        || lower.contains("soundcloud.com/")
+}
+
 async fn dispatch(app: &AppHandle, engine: &Engine, request: HostRequest) -> HostResponse {
     match request {
         HostRequest::Ping => HostResponse::ok(),
@@ -114,7 +137,22 @@ async fn dispatch(app: &AppHandle, engine: &Engine, request: HostRequest) -> Hos
             cookies,
             user_agent,
             headers,
+            is_media,
         } => {
+            if is_media || is_media_site_url(&url) {
+                info!(url = %url, "intercepted media download URL, opening media dialog");
+                show_main(app);
+                let _ = tauri::Emitter::emit(
+                    app,
+                    "browser://media_grab",
+                    serde_json::json!({
+                        "url": url,
+                        "title": filename,
+                    }),
+                );
+                return HostResponse::ok();
+            }
+
             let mut spec = DownloadSpec::new(url);
             spec.file_name = filename.filter(|value| !value.trim().is_empty());
             spec.referrer = referrer.filter(|value| !value.trim().is_empty());

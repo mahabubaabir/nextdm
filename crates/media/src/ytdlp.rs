@@ -6,7 +6,7 @@ use std::process::Stdio;
 use serde::Deserialize;
 use tokio::process::Command;
 
-use crate::{yt_dlp_path, MediaFormat, MediaInfo};
+use crate::{configure_command, yt_dlp_path, MediaFormat, MediaInfo};
 
 #[derive(Debug, thiserror::Error)]
 pub enum MediaError {
@@ -67,7 +67,9 @@ struct RawFormat {
 
 /// Ask yt-dlp for metadata and a flat list of downloadable formats.
 pub async fn probe(url: &str) -> Result<MediaInfo> {
-    let output = Command::new(yt_dlp_path())
+    let mut cmd = Command::new(yt_dlp_path());
+    configure_command(&mut cmd);
+    let output = cmd
         .args(["-J", "--no-playlist", "--no-warnings", "--skip-download"])
         .arg(url)
         .stdin(Stdio::null())
@@ -183,7 +185,9 @@ pub async fn download(
         _ => "bv*+ba/b".to_string(),
     };
 
-    let output = Command::new(yt_dlp_path())
+    let mut cmd = Command::new(yt_dlp_path());
+    configure_command(&mut cmd);
+    let output = cmd
         .arg("--no-playlist")
         .arg("--no-warnings")
         .arg("--newline")
