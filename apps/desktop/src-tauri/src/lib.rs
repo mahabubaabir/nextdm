@@ -201,6 +201,7 @@ async fn media_download(
     format_id: Option<String>,
     directory: Option<String>,
     file_stem: Option<String>,
+    expected_size: Option<u64>,
 ) -> Result<DownloadInfo, String> {
     let directory = directory
         .map(PathBuf::from)
@@ -219,7 +220,7 @@ async fn media_download(
     // 1. Immediately create an active downloading record in the engine so it appears in the UI
     let info = state
         .engine
-        .create_media_download(url.clone(), initial_name, directory.clone())
+        .create_media_download(url.clone(), initial_name, directory.clone(), expected_size)
         .map_err(error_string)?;
 
     let download_id = info.id;

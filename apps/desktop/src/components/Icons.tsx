@@ -416,20 +416,19 @@ export function Logo({ size = 30, theme }: { size?: number; theme?: string }) {
       aria-label="NextDM logo"
       className="nextdm-logo nextdm-logo-bw"
     >
-      <rect x="2" y="2" width="28" height="28" rx="7" fill="#0e0e10" stroke="rgba(255,255,255,0.2)" strokeWidth="0.8" />
       <path
-        d="M16 6.5v11.5M10.8 13.2 16 18.5l5.2-5.3"
+        d="M16 5.5v13M10 13.5 16 19.5l6-6"
         fill="none"
-        stroke="#ffffff"
-        strokeWidth="2.8"
+        stroke="currentColor"
+        strokeWidth="3.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
       <path
-        d="M8 21.5v1.5c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-1.5"
+        d="M6.5 22.5v2.5c0 1.2 1 2.2 2.2 2.2h14.6c1.2 0 2.2-1 2.2-2.2v-2.5"
         fill="none"
-        stroke="#ffffff"
-        strokeWidth="2.4"
+        stroke="currentColor"
+        strokeWidth="2.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />

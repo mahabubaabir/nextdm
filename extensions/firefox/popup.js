@@ -1,10 +1,18 @@
 const enabled = document.getElementById("enabled");
+const badgeStyle = document.getElementById("badge-style");
 const status = document.getElementById("status");
 const openApp = document.getElementById("open-app");
 
-chrome.storage.local.get({ enabled: true }, (value) => {
+chrome.storage.local.get({ enabled: true, badgeStyle: "full" }, (value) => {
   enabled.checked = Boolean(value.enabled);
+  if (badgeStyle) badgeStyle.value = value.badgeStyle || "full";
 });
+
+if (badgeStyle) {
+  badgeStyle.addEventListener("change", () => {
+    chrome.storage.local.set({ badgeStyle: badgeStyle.value });
+  });
+}
 
 enabled.addEventListener("change", () => {
   chrome.storage.local.set({ enabled: enabled.checked });

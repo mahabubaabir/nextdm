@@ -260,11 +260,12 @@ where
         if let Some(rest) = line.strip_prefix("PROGRESS:") {
             let parts: Vec<&str> = rest.split(':').collect();
             if parts.len() >= 5 {
-                let downloaded = parts[0].parse::<u64>().unwrap_or(0);
+                let downloaded = parts[0].parse::<f64>().map(|v| v as u64).unwrap_or(0);
                 let total = parts[1]
-                    .parse::<u64>()
+                    .parse::<f64>()
                     .ok()
-                    .or_else(|| parts[2].parse::<u64>().ok());
+                    .or_else(|| parts[2].parse::<f64>().ok())
+                    .map(|v| v as u64);
                 let speed = parts[3].parse::<f64>().map(|s| s as u64).unwrap_or(0);
                 let eta = parts[4].parse::<f64>().map(|e| e as u64).ok();
 

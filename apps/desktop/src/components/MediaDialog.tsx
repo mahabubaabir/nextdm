@@ -16,7 +16,7 @@ export function MediaDialog({
   initialUrl?: string;
   defaultDir: string;
   onClose: () => void;
-  onDownload: (url: string, formatId: string | null, fileStem: string) => void;
+  onDownload: (url: string, formatId: string | null, fileStem: string, expectedSize?: number | null) => void;
 }) {
   const [url, setUrl] = useState("");
   const [info, setInfo] = useState<MediaInfo | null>(null);
@@ -97,7 +97,9 @@ export function MediaDialog({
 
   const startDownload = () => {
     if (!info) return;
-    onDownload(info.webpageUrl || url.trim(), selected, info.title);
+    const chosenFormat = selected ? info.formats.find((f) => f.formatId === selected) : null;
+    const expectedSize = chosenFormat ? chosenFormat.filesize : null;
+    onDownload(info.webpageUrl || url.trim(), selected, info.title, expectedSize);
     onClose();
   };
 

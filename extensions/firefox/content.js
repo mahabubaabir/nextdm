@@ -9,24 +9,80 @@
   window.__nextdm_grabber_loaded__ = true;
 
   const BADGE_CLASS = "nextdm-video-badge";
+  let currentBadgeStyle = "full"; // "full" or "icon"
+
+  chrome.storage.local.get({ badgeStyle: "full" }, (res) => {
+    currentBadgeStyle = res.badgeStyle || "full";
+    updateAllBadges();
+  });
+
+  chrome.storage.onChanged.addListener((changes) => {
+    if (changes.badgeStyle) {
+      currentBadgeStyle = changes.badgeStyle.newValue || "full";
+      updateAllBadges();
+    }
+  });
+
+  function updateBadgeStyle(badge) {
+    if (currentBadgeStyle === "icon") {
+      badge.classList.add("nextdm-badge-icon-only");
+      badge.classList.remove("nextdm-badge-full");
+      badge.title = "Download Video with NextDM (Click to download, Right-click to switch style)";
+    } else {
+      badge.classList.add("nextdm-badge-full");
+      badge.classList.remove("nextdm-badge-icon-only");
+      badge.title = "Download with NextDM (Right-click to switch to icon-only)";
+    }
+  }
+
+  function updateAllBadges() {
+    document.querySelectorAll(`.${BADGE_CLASS}`).forEach(updateBadgeStyle);
+  }
 
   function createBadge(targetVideo) {
     const badge = document.createElement("div");
     badge.className = BADGE_CLASS;
-    badge.title = "Download with NextDM";
+    updateBadgeStyle(badge);
+
     badge.innerHTML = `
-      <svg viewBox="0 0 24 24">
-        <path d="M12 4v12m-4-4 4 4 4-4M5 20h14" />
-      </svg>
-      <span>Download Video</span>
+      <div class="nextdm-badge-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 3v13m-4-4 4 4 4-4M4 20h16" />
+        </svg>
+      </div>
+      <span class="nextdm-badge-text">Download Video</span>
+      <button type="button" class="nextdm-badge-toggle" title="Switch between Full panel and Icon-only (like IDM)">
+        <svg viewBox="0 0 16 16" width="10" height="10">
+          <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
     `;
+
+    // Right-click on badge toggles between Full and Icon-Only!
+    badge.addEventListener("contextmenu", (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const nextStyle = currentBadgeStyle === "icon" ? "full" : "icon";
+      chrome.storage.local.set({ badgeStyle: nextStyle });
+    });
+
+    const toggleBtn = badge.querySelector(".nextdm-badge-toggle");
+    if (toggleBtn) {
+      toggleBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const nextStyle = currentBadgeStyle === "icon" ? "full" : "icon";
+        chrome.storage.local.set({ badgeStyle: nextStyle });
+      });
+    }
 
     badge.addEventListener("click", (e) => {
       e.stopPropagation();
       e.preventDefault();
 
       badge.classList.add("nextdm-video-badge-active");
-      badge.querySelector("span").textContent = "Opening NextDM...";
+      const textSpan = badge.querySelector(".nextdm-badge-text");
+      if (textSpan) textSpan.textContent = "Opening NextDM...";
 
       // Determine best media target
       let targetUrl = window.location.href;
@@ -51,7 +107,7 @@
 
       setTimeout(() => {
         badge.classList.remove("nextdm-video-badge-active");
-        badge.querySelector("span").textContent = "Download Video";
+        if (textSpan) textSpan.textContent = "Download Video";
       }, 3000);
     });
 

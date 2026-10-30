@@ -69,7 +69,7 @@ export function DownloadProgressDialog({
 
   const percent = useMemo(() => {
     if (!download?.totalSize || download.totalSize <= 0) {
-      return download?.status === "completed" ? 100 : 0;
+      return download?.status === "completed" ? 100 : null;
     }
     return Math.min(100, Math.max(0, (download.downloaded / download.totalSize) * 100));
   }, [download?.downloaded, download?.totalSize, download?.status]);
@@ -197,9 +197,12 @@ export function DownloadProgressDialog({
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", marginBottom: "6px" }}>
             <span>
-              {formatBytes(download.downloaded)} of {formatBytes(download.totalSize)} ({percent.toFixed(1)}%)
+              {formatBytes(download.downloaded)} of {formatBytes(download.totalSize)}
+              {percent !== null ? ` (${percent.toFixed(1)}%)` : ""}
             </span>
-            <span style={{ fontWeight: 600 }}>{percent.toFixed(1)}%</span>
+            <span style={{ fontWeight: 600 }}>
+              {percent !== null ? `${percent.toFixed(1)}%` : "Downloading…"}
+            </span>
           </div>
 
           <div
@@ -214,8 +217,13 @@ export function DownloadProgressDialog({
             <div
               style={{
                 height: "100%",
-                width: `${percent}%`,
-                background: "linear-gradient(90deg, #3b82f6, #60a5fa)",
+                width: percent !== null ? `${percent}%` : "100%",
+                background:
+                  percent !== null
+                    ? "linear-gradient(90deg, #3b82f6, #60a5fa)"
+                    : "linear-gradient(90deg, #3b82f6 0%, #93c5fd 50%, #3b82f6 100%)",
+                backgroundSize: percent === null ? "200% 100%" : undefined,
+                animation: percent === null ? "shimmerPulse 1.6s infinite ease-in-out" : undefined,
                 borderRadius: "6px",
                 transition: "width 0.3s ease",
               }}

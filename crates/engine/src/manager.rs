@@ -591,6 +591,7 @@ impl Engine {
         url: String,
         file_name: String,
         directory: PathBuf,
+        expected_size: Option<u64>,
     ) -> Result<DownloadInfo> {
         let temp_path = download::temp_path_for(&directory.join(&file_name));
         let now = Utc::now();
@@ -601,7 +602,7 @@ impl Engine {
             file_name: file_name.clone(),
             directory,
             temp_path,
-            total_size: None,
+            total_size: expected_size,
             downloaded: 0,
             status: DownloadStatus::Downloading,
             resumable: false,
@@ -640,8 +641,10 @@ impl Engine {
     ) -> Result<()> {
         if let Some(mut record) = self.inner.store.get(id)? {
             record.downloaded = downloaded;
-            if total.is_some() {
-                record.total_size = total;
+            if let Some(t) = total {
+                if t > 0 {
+                    record.total_size = Some(t);
+                }
             }
             record.status = DownloadStatus::Downloading;
             let _ = self.inner.save(&record);

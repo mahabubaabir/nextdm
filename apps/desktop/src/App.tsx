@@ -447,13 +447,19 @@ function App() {
     }
   };
 
-  const startMediaDownload = (url: string, formatId: string | null, fileStem: string) => {
+  const startMediaDownload = (
+    url: string,
+    formatId: string | null,
+    fileStem: string,
+    expectedSize?: number | null,
+  ) => {
     notify("info", `Downloading media: ${fileStem || "video"}...`);
     invoke<DownloadInfo>("media_download", {
       url,
       formatId,
       fileStem,
       directory: settings.defaultDir || null,
+      expectedSize: expectedSize ?? null,
     })
       .then((info) => {
         setDownloads((current) => upsert(current, info));
