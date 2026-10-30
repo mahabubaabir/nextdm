@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NextDM</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <img src="icons/icon48.png" width="34" height="34" alt="" />
+      <div>
+        <h1>NextDM</h1>
+        <p id="status" class="checking">Checking connection…</p>
+      </div>
+    </header>
+
+    <label class="toggle">
+      <input id="enabled" type="checkbox" checked />
+      <span>Take over browser downloads</span>
+    </label>
+
+    <p class="hint">
+      Direct links are sent to NextDM with your cookies and referrer. If NextDM cannot be reached,
+      the browser keeps the download.
+    </p>
+
+    <footer>
+      <button id="open-app">Open instructions</button>
+    </footer>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "NextDM Integration",
+  "version": "0.1.0",
+  "description": "Hand downloads from your browser to NextDM.",
+  "minimum_chrome_version": "109",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzuN2Rl7lW/DyVeZzAzCy2pcAfKa4/lm5+x9xfOYalMenlvuy08LfsMiUet4iznMZudiYFHHJ7sLqyo+89mrd4xxQVVL3hQqH79A1Q4qY0RPmzStYnWL1k8u1lobB6gg7ibFqT+VTGZdzUB2MrI1c2s2/FjI4pg4FWocV3TDAxwyvTwkY233tiVioDt+4ycbwTcsFn0LMllMR5yafgpPx9yxA/TBq3v7Rhwcm6McvRaIIayYaH2dlWqEKnGAezasMNQlmGQbIhrcIfZNl1/tRWN87gZihY/3eHhNtpvir8h45WYoUP0Z+vlZNrcGiw0Bh82hvtzfotjVWFfj599ALRQIDAQAB",
+  "permissions": [
+    "downloads",
+    "cookies",
+    "nativeMessaging",
+    "storage",
+    "contextMenus",
+    "tabs"
+  ],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "NextDM",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

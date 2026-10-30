@@ -1,0 +1,154 @@
+//! Local Unix-socket server used by the browser native-messaging host.
+
+use std::io;
+use std::path::Path;
+use std::time::Duration;
+
+use nextdm_browser_host::ipc::socket_path;
+use nextdm_browser_host::protocol::{HostRequest, HostResponse};
+use nextdm_engine::{DownloadSpec, Engine};
+use tauri::{AppHandle, Manager};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::net::{UnixListener, UnixStream};
+use tracing::{info, warn};
+
+/// Start the IPC listener on the current thread's Tokio runtime.
+pub fn spawn(app: AppHandle, engine: Engine) {
+    let path = socket_path();
+    tauri::async_runtime::spawn(async move {
+        if let Some(parent) = path.parent() {
+            if let Err(error) = std::fs::create_dir_all(parent) {
+                warn!(%error, path = %parent.display(), "could not create IPC directory");
+                return;
+            }
+        }
+
+        if path.exists() {
+            if UnixStream::connect(&path).await.is_ok() {
+                info!(path = %path.display(), "IPC socket already served by another instance");
+                return;
+            }
+            let _ = std::fs::remove_file(&path);
+        }
+
+        let listener = match UnixListener::bind(&path) {
+            Ok(listener) => listener,
+            Err(error) => {
+                warn!(%error, path = %path.display(), "could not bind IPC socket");
+                return;
+            }
+        };
+        restrict_permissions(&path);
+        info!(path = %path.display(), "browser integration listening");
+
+        loop {
+            match listener.accept().await {
+                Ok((stream, _)) => {
+                    let app = app.clone();
+                    let engine = engine.clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Err(error) = handle_connection(app, engine, stream).await {
+                            warn!(%error, "browser IPC request failed");
+                        }
+                    });
+                }
+                Err(error) => {
+                    warn!(%error, "browser IPC accept failed");
+                    tokio::time::sleep(Duration::from_millis(250)).await;
+                }
+            }
+        }
+    });
+}
+
+fn restrict_permissions(path: &Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600));
+    }
+}
+
+async fn handle_connection(
+    app: AppHandle,
+    engine: Engine,
+    stream: UnixStream,
+) -> io::Result<()> {
+    let (reader, mut writer) = stream.into_split();
+    let mut reader = BufReader::new(reader);
+    let mut line = String::new();
+
+    let read = tokio::time::timeout(Duration::from_secs(10), reader.read_line(&mut line))
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "timed out reading request"))??;
+    if read == 0 {
+        return Ok(());
+    }
+
+    let response = match serde_json::from_str::<HostRequest>(line.trim()) {
+        Ok(request) => dispatch(&app, &engine, request).await,
+        Err(error) => HostResponse::error(format!("invalid request: {error}")),
+    };
+
+    let mut payload = serde_json::to_vec(&response).map_err(io::Error::other)?;
+    payload.push(b'\n');
+    writer.write_all(&payload).await?;
+    writer.flush().await?;
+    Ok(())
+}
+
+async fn dispatch(app: &AppHandle, engine: &Engine, request: HostRequest) -> HostResponse {
+    match request {
+        HostRequest::Ping => HostResponse::ok(),
+        HostRequest::GetVersion => {
+            HostResponse::ok().with_version(env!("CARGO_PKG_VERSION"))
+        }
+        HostRequest::ShowWindow => {
+            show_main(app);
+            HostResponse::ok()
+        }
+        HostRequest::AddDownload {
+            url,
+            filename,
+            referrer,
+            cookies,
+            user_agent,
+            headers,
+        } => {
+            let mut spec = DownloadSpec::new(url);
+            spec.file_name = filename.filter(|value| !value.trim().is_empty());
+            spec.referrer = referrer.filter(|value| !value.trim().is_empty());
+            spec.cookies = cookies.filter(|value| !value.trim().is_empty());
+            if let Some(user_agent) = user_agent.filter(|value| !value.trim().is_empty()) {
+                spec.headers
+                    .insert("User-Agent".to_string(), user_agent);
+            }
+            spec.headers.extend(headers);
+
+            match engine.add(spec).await {
+                Ok(info) => {
+                    info!(id = %info.id, file = %info.file_name, "browser download added");
+                    show_main(app);
+                    HostResponse::ok().with_download(info.id.to_string())
+                }
+                Err(error) => HostResponse::error(error.to_string()),
+            }
+        }
+        HostRequest::ProbeMedia { url, .. } => match nextdm_media::ytdlp::probe(&url).await {
+            Ok(info) => match serde_json::to_value(info) {
+                Ok(value) => HostResponse::ok().with_data(value),
+                Err(error) => HostResponse::error(error.to_string()),
+            },
+            Err(error) => HostResponse::error(error.to_string()),
+        },
+    }
+}
+
+fn show_main(app: &AppHandle) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    let _ = window.show();
+    let _ = window.unminimize();
+    let _ = window.set_focus();
+}
