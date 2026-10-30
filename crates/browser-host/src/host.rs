@@ -97,11 +97,7 @@ fn handle(request: HostRequest) -> HostResponse {
 
 /// Start the desktop app detached from the browser process.
 fn launch_app() -> io::Result<()> {
-    let executable = std::env::var_os("NEXTDM_APP")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            std::env::current_exe().unwrap_or_else(|_| PathBuf::from("nextdm"))
-        });
+    let executable = find_desktop_binary();
 
     let mut command = Command::new(executable);
     command
@@ -117,4 +113,36 @@ fn launch_app() -> io::Result<()> {
     }
 
     command.spawn().map(|_| ())
+}
+
+fn find_desktop_binary() -> PathBuf {
+    if let Some(app) = std::env::var_os("NEXTDM_APP") {
+        let p = PathBuf::from(app);
+        if p.exists() {
+            return p;
+        }
+    }
+
+    if let Ok(current) = std::env::current_exe() {
+        if let Some(parent) = current.parent() {
+            let sibling = parent.join("nextdm-desktop");
+            if sibling.is_file() {
+                return sibling;
+            }
+        }
+    }
+
+    if let Some(home) = std::env::var_os("HOME") {
+        let local = PathBuf::from(home).join(".local/bin/nextdm-desktop");
+        if local.is_file() {
+            return local;
+        }
+    }
+
+    let sys = PathBuf::from("/usr/bin/nextdm-desktop");
+    if sys.is_file() {
+        return sys;
+    }
+
+    PathBuf::from("nextdm-desktop")
 }

@@ -134,3 +134,56 @@ export function isProbablyUrl(value: string): boolean {
     return false;
   }
 }
+
+export const DOWNLOADABLE_EXTENSIONS = [
+  ".zip", ".rar", ".7z", ".tar.gz", ".tar.bz2", ".tar.xz", ".tgz", ".iso",
+  ".deb", ".rpm", ".appimage", ".exe", ".msi", ".dmg", ".pkg", ".apk",
+  ".mp4", ".mkv", ".avi", ".mov", ".webm", ".flv", ".mp3", ".flac", ".wav",
+  ".pdf", ".docx", ".xlsx", ".pptx"
+];
+
+export function isDownloadableUrl(url: string): boolean {
+  if (!isProbablyUrl(url)) return false;
+  try {
+    const parsed = new URL(url);
+    const pathname = parsed.pathname.toLowerCase();
+    return DOWNLOADABLE_EXTENSIONS.some((ext) => pathname.endsWith(ext));
+  } catch {
+    return false;
+  }
+}
+
+export function playCompletionSound(): void {
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+
+    // First tone (pleasant C5 ~523.25 Hz)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(523.25, now);
+    gain1.gain.setValueAtTime(0.18, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.18);
+
+    // Second ascending tone (crisp G5 ~783.99 Hz)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(783.99, now + 0.12);
+    gain2.gain.setValueAtTime(0.22, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.38);
+  } catch {
+    /* AudioContext not allowed or not supported */
+  }
+}

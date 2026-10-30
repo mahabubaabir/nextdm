@@ -1,0 +1,12 @@
+{
+  "name": "com.nextdm.host",
+  "description": "NextDM native messaging host",
+  "path": "/usr/bin/nextdm-host",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://ciljeaclhfhipchfaocjmoanpbacibli/",
+    "chrome-extension://ngpampappnmepgilojfohadhhmbhlaek/",
+    "chrome-extension://llbjbkhnmlidjebalopleeepgdfgcpec/"
+  ]
+}
+

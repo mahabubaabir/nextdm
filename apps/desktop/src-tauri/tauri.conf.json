@@ -38,6 +38,24 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0 | libwebkit2gtk-4.0-37",
+          "libgtk-3-0",
+          "libayatana-appindicator3-1 | libappindicator3-1"
+        ],
+        "files": {
+          "/usr/bin/nextdm-host": "bin/nextdm-host",
+          "/usr/share/nextdm/com.nextdm.host.chromium.json": "packaging/com.nextdm.host.chromium.json",
+          "/usr/share/nextdm/com.nextdm.host.firefox.json": "packaging/com.nextdm.host.firefox.json",
+          "/usr/share/nextdm/extensions/nextdm-chromium.zip": "extensions/nextdm-chromium.zip",
+          "/usr/share/nextdm/extensions/nextdm-firefox.xpi": "extensions/nextdm-firefox.xpi"
+        },
+        "postInstallScript": "packaging/postinst",
+        "postRemoveScript": "packaging/postrm"
+      }
+    }
   }
 }

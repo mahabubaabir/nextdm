@@ -9,23 +9,33 @@ No ads, no telemetry, no account.
 ## Features
 
 - **Segmented HTTP downloads** with up to 32 parallel connections per file.
-- **Resume** after pause, network loss, crash or restart. Partial files are
-  validated against the remote ETag / Last-Modified value before continuing.
+- **Pre-download file probe & confirmation dialog** ("Download File Info") with remote file size detection, resume validation, folder suggestions, and category selection before downloading.
+- **Real-time connection chunk visualizer** displaying live multi-colored thread byte partitions and download progress.
+- **Download complete dialog** with synthesized chime and direct Nemo file manager integration (`Open File` / `Open Folder`).
+- **Resume support** after pause, network loss, crash or restart. Partial files are validated against the remote ETag / Last-Modified value before continuing.
 - **Pause, resume, cancel and remove** individually or in bulk.
-- **Browser takeover** for Chromium, Chrome, Brave, Edge, Vivaldi and Firefox.
-  Cookies and the page referrer are handed to NextDM so authenticated and
-  hotlink-protected links work. If NextDM is unreachable, the browser keeps the
-  download.
-- **Media downloads** from YouTube, Facebook and thousands of other sites via
-  `yt-dlp`, with a quality picker and automatic audio/video merging.
-- **Categories, search, sorting and filters** for documents, music, video,
-  programs, compressed files and images.
+- **Standalone `nextdm-host` messaging bridge** with auto browser detection and zero-config `.deb` installation for Chrome, Chromium, Brave, Edge, Vivaldi and Firefox.
+- **In-browser floating video grabber** badge above web video players (YouTube, Facebook, HTML5 video).
+- **Clipboard URL sniffer** with download prompts for popular file formats.
+- **Multi-theme engine** supporting:
+  - **Liquid Glass**: Modern frosted translucent glassmorphism with blur and glass gradients.
+  - **Material 3 Expressive**: Rounded cards, tonal elevations, and M3 styling.
+  - **Classic Linux Mint** and **Dark Mode**.
+  - **Theme-adaptive app icon** matching the active desktop theme.
+- **Media downloads** from YouTube, Facebook and thousands of other sites via `yt-dlp`, with a quality picker and automatic audio/video merging.
+- **Categories, search, sorting and filters** for documents, music, video, programs, compressed files and images.
 - **Global speed limiter** and configurable default connection count.
-- **Clipboard monitoring** and drag-and-drop links.
-- **Light, dark and system themes** with a compact desktop layout.
-- **Everything local.** The database and settings live under
-  `~/.local/share/com.nextdm.app`. No data leaves the machine except the
-  transfers you start.
+- **Everything local.** The database and settings live under `~/.local/share/com.nextdm.app`. No ads, no telemetry, no account.
+
+## Quick Installation on Linux Mint / Ubuntu / Debian
+
+Download the zero-config Debian package from the [Releases](https://github.com/mahabubaabir/nextdm/releases) or the `releases/` directory:
+
+```bash
+sudo dpkg -i releases/nextdm_0.1.0_amd64.deb
+```
+
+The package automatically configures browser native messaging manifests for Chrome, Chromium, Brave, Edge, Vivaldi and Firefox.
 
 ## Requirements
 

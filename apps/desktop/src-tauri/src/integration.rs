@@ -23,11 +23,16 @@ pub fn install(chromium: bool, firefox: bool) -> Result<Vec<String>, String> {
         .map(PathBuf::from)
         .ok_or_else(|| "HOME is not set".to_string())?;
 
-    let launcher = app_launcher()?;
-    let host_dir = home.join(".local/share/nextdm/browser-host");
-    fs::create_dir_all(&host_dir).map_err(stringify)?;
-    let wrapper = host_dir.join("nextdm-native-host");
-    write_wrapper(&wrapper, &launcher)?;
+    let host_path = if let Some(host_bin) = find_host_binary(&home) {
+        host_bin
+    } else {
+        let launcher = app_launcher()?;
+        let host_dir = home.join(".local/share/nextdm/browser-host");
+        fs::create_dir_all(&host_dir).map_err(stringify)?;
+        let wrapper = host_dir.join("nextdm-native-host");
+        write_wrapper(&wrapper, &launcher)?;
+        wrapper
+    };
 
     let mut messages = Vec::new();
 
@@ -38,7 +43,7 @@ pub fn install(chromium: bool, firefox: bool) -> Result<Vec<String>, String> {
         let manifest = ChromiumManifest {
             name: HOST_NAME.to_string(),
             description: "NextDM download handoff host".to_string(),
-            path: wrapper.to_string_lossy().to_string(),
+            path: host_path.to_string_lossy().to_string(),
             kind: "stdio".to_string(),
             allowed_origins: vec![format!("chrome-extension://{CHROMIUM_EXTENSION_ID}/")],
         };
@@ -66,7 +71,7 @@ pub fn install(chromium: bool, firefox: bool) -> Result<Vec<String>, String> {
         let manifest = FirefoxManifest {
             name: HOST_NAME.to_string(),
             description: "NextDM download handoff host".to_string(),
-            path: wrapper.to_string_lossy().to_string(),
+            path: host_path.to_string_lossy().to_string(),
             kind: "stdio".to_string(),
             allowed_extensions: vec![FIREFOX_EXTENSION_ID.to_string()],
         };
@@ -88,6 +93,26 @@ pub fn install(chromium: bool, firefox: bool) -> Result<Vec<String>, String> {
     }
 
     Ok(messages)
+}
+
+fn find_host_binary(home: &Path) -> Option<PathBuf> {
+    let usr_bin = PathBuf::from("/usr/bin/nextdm-host");
+    if usr_bin.is_file() {
+        return Some(usr_bin);
+    }
+    let local_bin = home.join(".local/bin/nextdm-host");
+    if local_bin.is_file() {
+        return Some(local_bin);
+    }
+    if let Ok(current) = std::env::current_exe() {
+        if let Some(parent) = current.parent() {
+            let sibling = parent.join("nextdm-host");
+            if sibling.is_file() {
+                return Some(sibling);
+            }
+        }
+    }
+    None
 }
 
 fn app_launcher() -> Result<PathBuf, String> {

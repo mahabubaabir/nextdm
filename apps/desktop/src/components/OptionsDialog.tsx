@@ -138,8 +138,10 @@ export function OptionsDialog({
                     onPreviewTheme(theme);
                   }}
                 >
-                  <option value="classic">Classic light</option>
-                  <option value="dark">Dark</option>
+                  <option value="classic">Classic Linux Mint</option>
+                  <option value="dark">Modern Dark</option>
+                  <option value="glass">Liquid Glass (Modern Trend)</option>
+                  <option value="material3">Material 3 Expressive</option>
                   <option value="system">Follow system</option>
                 </select>
               </label>

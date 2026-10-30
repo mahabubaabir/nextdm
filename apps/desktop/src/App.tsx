@@ -14,11 +14,14 @@ import { StatusBar } from "./components/StatusBar";
 import { ContextMenu, type ContextEntry } from "./components/ContextMenu";
 import { Toasts, type ToastMessage } from "./components/Toasts";
 import { AddDownloadDialog } from "./components/AddDownloadDialog";
+import { DownloadFileInfoDialog } from "./components/DownloadFileInfoDialog";
+import { DownloadProgressDialog } from "./components/DownloadProgressDialog";
+import { DownloadCompleteDialog } from "./components/DownloadCompleteDialog";
 import { OptionsDialog } from "./components/OptionsDialog";
 import { MediaDialog } from "./components/MediaDialog";
 import { Modal } from "./components/Modal";
 import { Icon, Logo } from "./components/Icons";
-import { DEFAULT_SETTINGS, categoryLabel, isProbablyUrl } from "./lib";
+import { DEFAULT_SETTINGS, categoryLabel, isDownloadableUrl, isProbablyUrl } from "./lib";
 import type {
   DownloadInfo,
   EngineEvent,
@@ -49,7 +52,10 @@ function upsert(list: DownloadInfo[], download: DownloadInfo): DownloadInfo[] {
 }
 
 function readSettings(raw: Record<string, unknown>, defaultDir: string): Settings {
-  const theme = raw.theme === "dark" || raw.theme === "system" ? raw.theme : "classic";
+  const theme =
+    raw.theme === "dark" || raw.theme === "glass" || raw.theme === "material3" || raw.theme === "system"
+      ? (raw.theme as Settings["theme"])
+      : "classic";
   return {
     theme,
     defaultDir: typeof raw.default_dir === "string" ? raw.default_dir : defaultDir,
@@ -94,6 +100,10 @@ function App() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<"add" | "options" | "media" | "about" | null>(null);
   const [initialUrls, setInitialUrls] = useState("");
+  const [fileInfoUrl, setFileInfoUrl] = useState<string | null>(null);
+  const [activeProgressId, setActiveProgressId] = useState<string | null>(null);
+  const [completedDownload, setCompletedDownload] = useState<DownloadInfo | null>(null);
+  const [clipboardDetectedUrl, setClipboardDetectedUrl] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; download: DownloadInfo } | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [engineVersion, setEngineVersion] = useState("0.1.0");
@@ -133,6 +143,7 @@ function App() {
   useEffect(() => {
     let disposed = false;
     let unlisten: (() => void) | undefined;
+    let unlistenBrowser: (() => void) | undefined;
 
     (async () => {
       try {
@@ -186,9 +197,16 @@ function App() {
               return next;
             });
           }
-          if (payload.type === "completed" && settingsRef.current.notifications) {
-            notify("success", `Completed: ${payload.download.fileName}`);
+          if (payload.type === "completed") {
+            if (settingsRef.current.notifications) {
+              notify("success", `Completed: ${payload.download.fileName}`);
+            }
+            setCompletedDownload(payload.download);
           }
+        });
+
+        unlistenBrowser = await listen<DownloadInfo>("browser://download_added", (event) => {
+          setActiveProgressId(event.payload.id);
         });
       } catch {
         /* event bridge unavailable outside Tauri */
@@ -198,6 +216,7 @@ function App() {
     return () => {
       disposed = true;
       unlisten?.();
+      unlistenBrowser?.();
     };
   }, [notify]);
 
@@ -216,26 +235,25 @@ function App() {
   useEffect(() => {
     if (!settings.clipboardMonitor) return;
     const timer = window.setInterval(async () => {
-      if (dialogRef.current) return;
+      if (dialogRef.current || fileInfoUrl) return;
       try {
         const text = (await readText())?.trim();
         if (
           !text ||
           text === clipboardSeen.current ||
           text.length > 2048 ||
-          !isProbablyUrl(text)
+          !isDownloadableUrl(text)
         ) {
           return;
         }
         clipboardSeen.current = text;
-        setInitialUrls(text);
-        setDialog("add");
+        setClipboardDetectedUrl(text);
       } catch {
         /* clipboard permission not granted */
       }
-    }, 1600);
+    }, 1500);
     return () => window.clearInterval(timer);
-  }, [settings.clipboardMonitor]);
+  }, [settings.clipboardMonitor, fileInfoUrl]);
 
   const changeTheme = useCallback(
     (theme: Settings["theme"]) => {
@@ -306,7 +324,16 @@ function App() {
   );
   const canRemove = selectedDownloads.length > 0;
 
+  const activeProgressDownload = useMemo(() => {
+    if (!activeProgressId) return null;
+    return downloads.find((d) => d.id === activeProgressId) ?? null;
+  }, [downloads, activeProgressId]);
+
   const openAdd = (urls = "") => {
+    setFileInfoUrl(urls);
+  };
+
+  const openBatchAdd = (urls = "") => {
     setInitialUrls(urls);
     setDialog("add");
   };
@@ -365,14 +392,10 @@ function App() {
 
   const openDownload = (download: DownloadInfo) => {
     if (download.status === "completed") {
-      invoke("open_path", { path: download.path }).catch((error) => notify("error", String(error)));
+      setCompletedDownload(download);
       return;
     }
-    if (["queued", "connecting", "downloading"].includes(download.status)) {
-      invoke("pause_download", { id: download.id }).catch((error) => notify("error", String(error)));
-    } else {
-      invoke("resume_download", { id: download.id }).catch((error) => notify("error", String(error)));
-    }
+    setActiveProgressId(download.id);
   };
 
   const startAll = () => {
@@ -506,7 +529,8 @@ function App() {
     {
       label: "File",
       items: [
-        { label: "Add URL…", shortcut: "Ctrl+N", onClick: () => openAdd() },
+        { label: "Add URL (Download File Info)…", shortcut: "Ctrl+N", onClick: () => openAdd() },
+        { label: "Batch Add URLs…", onClick: () => openBatchAdd() },
         { label: "Download Video…", onClick: () => setDialog("media") },
         { separator: true },
         { label: "Open Download Folder", onClick: downloadFolder },
@@ -544,6 +568,8 @@ function App() {
           onClick: () => changeTheme("classic"),
         },
         { label: "Dark theme", checked: settings.theme === "dark", onClick: () => changeTheme("dark") },
+        { label: "Liquid Glass theme (Trend)", checked: settings.theme === "glass", onClick: () => changeTheme("glass") },
+        { label: "Material 3 Expressive theme", checked: settings.theme === "material3", onClick: () => changeTheme("material3") },
         {
           label: "Follow system theme",
           checked: settings.theme === "system",
@@ -589,6 +615,11 @@ function App() {
             invoke("reveal_path", { path: contextMenu.download.path }).catch((error) =>
               notify("error", String(error)),
             ),
+        },
+        {
+          label: "Download Progress & Segments…",
+          icon: "download",
+          onClick: () => setActiveProgressId(contextMenu.download.id),
         },
         { separator: true },
         {
@@ -727,6 +758,106 @@ function App() {
         onClose={() => setDialog(null)}
         onAdded={(count) => notify("success", `${count} download${count === 1 ? "" : "s"} added.`)}
       />
+
+      <DownloadFileInfoDialog
+        open={fileInfoUrl !== null}
+        initialUrl={fileInfoUrl ?? ""}
+        defaultDir={settings.defaultDir}
+        maxConnections={settings.maxConnections}
+        onClose={() => setFileInfoUrl(null)}
+        onStart={(download) => {
+          setFileInfoUrl(null);
+          setActiveProgressId(download.id);
+        }}
+        onLater={(download) => {
+          setFileInfoUrl(null);
+          notify("info", `Queued: ${download.fileName}`);
+        }}
+      />
+
+      <DownloadProgressDialog
+        open={activeProgressDownload !== null}
+        download={activeProgressDownload}
+        onClose={() => setActiveProgressId(null)}
+        onPause={(id) => {
+          invoke("pause_download", { id }).catch((err) => notify("error", String(err)));
+        }}
+        onResume={(id) => {
+          invoke("resume_download", { id }).catch((err) => notify("error", String(err)));
+        }}
+        onCancel={(id) => {
+          invoke("cancel_download", { id }).catch((err) => notify("error", String(err)));
+          setActiveProgressId(null);
+        }}
+      />
+
+      <DownloadCompleteDialog
+        open={completedDownload !== null}
+        download={completedDownload}
+        onClose={() => setCompletedDownload(null)}
+      />
+
+      {clipboardDetectedUrl && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "36px",
+            right: "24px",
+            background: "var(--bg-elevated, #1f2937)",
+            color: "var(--text-color, #ffffff)",
+            border: "1px solid var(--border-color, rgba(255, 255, 255, 0.15))",
+            borderRadius: "10px",
+            padding: "12px 16px",
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.35)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            maxWidth: "480px",
+          }}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "2px", overflow: "hidden" }}>
+            <span style={{ fontSize: "11px", color: "var(--text-muted, #9ca3af)", fontWeight: 600 }}>
+              📥 Download link detected in clipboard
+            </span>
+            <span
+              style={{
+                fontSize: "12px",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                maxWidth: "300px",
+              }}
+              title={clipboardDetectedUrl}
+            >
+              {clipboardDetectedUrl}
+            </span>
+          </div>
+
+          <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ padding: "4px 10px", fontSize: "12px", fontWeight: 600 }}
+              onClick={() => {
+                const u = clipboardDetectedUrl;
+                setClipboardDetectedUrl(null);
+                setFileInfoUrl(u);
+              }}
+            >
+              Download
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ padding: "4px 8px", fontSize: "12px" }}
+              onClick={() => setClipboardDetectedUrl(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       <OptionsDialog
         open={dialog === "options"}

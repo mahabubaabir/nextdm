@@ -6,6 +6,10 @@ license.workspace = true
 repository.workspace = true
 description = "Browser integration host for NextDM"
 
+[[bin]]
+name = "nextdm-host"
+path = "src/main.rs"
+
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true

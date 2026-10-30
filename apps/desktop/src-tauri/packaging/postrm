@@ -1,0 +1,24 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+    rm -f /etc/chromium/native-messaging-hosts/com.nextdm.host.json 2>/dev/null || true
+    rm -f /etc/opt/chrome/native-messaging-hosts/com.nextdm.host.json 2>/dev/null || true
+    rm -f /etc/brave/native-messaging-hosts/com.nextdm.host.json 2>/dev/null || true
+    rm -f /etc/opt/edge/native-messaging-hosts/com.nextdm.host.json 2>/dev/null || true
+    rm -f /etc/vivaldi/native-messaging-hosts/com.nextdm.host.json 2>/dev/null || true
+    rm -f /etc/opera/native-messaging-hosts/com.nextdm.host.json 2>/dev/null || true
+    rm -f /usr/lib/mozilla/native-messaging-hosts/com.nextdm.host.json 2>/dev/null || true
+    rm -f /usr/lib/x86_64-linux-gnu/mozilla/native-messaging-hosts/com.nextdm.host.json 2>/dev/null || true
+    rm -f /usr/lib64/mozilla/native-messaging-hosts/com.nextdm.host.json 2>/dev/null || true
+
+    if which update-desktop-database >/dev/null 2>&1; then
+        update-desktop-database -q /usr/share/applications || true
+    fi
+    if which gtk-update-icon-cache >/dev/null 2>&1; then
+        gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor 2>/dev/null || true
+    fi
+fi
+
+exit 0
+

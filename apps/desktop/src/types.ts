@@ -39,6 +39,23 @@ export interface EngineStats {
   totalSpeed: number;
 }
 
+export interface Segment {
+  start: number;
+  end: number | null;
+  written: number;
+}
+
+export interface ProbeResult {
+  url: string;
+  finalUrl: string;
+  totalSize: number | null;
+  resumable: boolean;
+  fileName: string;
+  category: string;
+  contentType: string | null;
+  defaultDir: string;
+}
+
 export type EngineEvent =
   | { type: "added"; download: DownloadInfo }
   | { type: "updated"; download: DownloadInfo }
@@ -49,6 +66,7 @@ export type EngineEvent =
       totalSize: number | null;
       speed: number;
       eta: number | null;
+      segments?: Segment[];
     }
   | { type: "completed"; download: DownloadInfo }
   | { type: "removed"; id: string };
@@ -77,7 +95,7 @@ export interface MediaInfo {
 }
 
 export interface Settings {
-  theme: "classic" | "dark" | "system";
+  theme: "classic" | "dark" | "glass" | "material3" | "system";
   defaultDir: string;
   maxConnections: number;
   speedLimit: number;

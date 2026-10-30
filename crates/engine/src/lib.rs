@@ -15,5 +15,6 @@ pub use error::{Error, Result};
 pub use manager::Engine;
 pub use storage::Storage;
 pub use types::{
-    DownloadInfo, DownloadSpec, DownloadStatus, EngineConfig, EngineEvent, EngineStats, Segment,
+    DownloadInfo, DownloadSpec, DownloadStatus, EngineConfig, EngineEvent, EngineStats,
+    ProbeResult, Segment,
 };

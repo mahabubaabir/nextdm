@@ -10,6 +10,7 @@ use reqwest::header::{
     ACCEPT_ENCODING, CONTENT_DISPOSITION, CONTENT_RANGE, CONTENT_TYPE, ETAG, LAST_MODIFIED, RANGE,
 };
 use reqwest::{Client, StatusCode};
+use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 use url::Url;
 
@@ -17,7 +18,7 @@ use crate::error::{Error, Result};
 use crate::types::Segment;
 
 /// Result of probing a remote URL with a one-byte range request.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Probe {
     pub final_url: String,
     pub total_size: Option<u64>,

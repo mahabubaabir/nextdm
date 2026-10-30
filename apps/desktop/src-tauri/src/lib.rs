@@ -140,9 +140,47 @@ fn open_path(path: String) -> Result<(), String> {
 
 #[tauri::command]
 fn reveal_path(path: String) -> Result<(), String> {
-    let path = PathBuf::from(path);
-    let directory = path.parent().unwrap_or(&path);
+    let p = PathBuf::from(&path);
+    let canonical = p.canonicalize().unwrap_or(p.clone());
+    let uri = format!("file://{}", canonical.to_string_lossy());
+
+    // Try standard DBus org.freedesktop.FileManager1.ShowItems (works in Nemo on Linux Mint)
+    let dbus_result = std::process::Command::new("dbus-send")
+        .args([
+            "--session",
+            "--dest=org.freedesktop.FileManager1",
+            "--type=method_call",
+            "/org/freedesktop/FileManager1",
+            "org.freedesktop.FileManager1.ShowItems",
+            &format!("array:string:\"{}\"", uri),
+            "string:\"\"",
+        ])
+        .output();
+    if let Ok(output) = dbus_result {
+        if output.status.success() {
+            return Ok(());
+        }
+    }
+
+    let directory = p.parent().unwrap_or(&p);
     open_path(directory.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+async fn probe_url(
+    state: State<'_, AppState>,
+    url: String,
+) -> Result<nextdm_engine::ProbeResult, String> {
+    state.engine.probe_url(&url).await.map_err(error_string)
+}
+
+#[tauri::command]
+fn get_segments(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<Vec<nextdm_engine::Segment>, String> {
+    let id = uuid::Uuid::parse_str(&id).map_err(error_string)?;
+    state.engine.get_segments(id).map_err(error_string)
 }
 
 #[tauri::command]
@@ -434,6 +472,8 @@ pub fn run() {
             yt_dlp_available,
             media_probe,
             media_download,
+            probe_url,
+            get_segments,
             engine_version,
             install_browser_integration,
         ])

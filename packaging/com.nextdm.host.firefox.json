@@ -1,0 +1,10 @@
+{
+  "name": "com.nextdm.host",
+  "description": "NextDM native messaging host",
+  "path": "/usr/bin/nextdm-host",
+  "type": "stdio",
+  "allowed_extensions": [
+    "nextdm@nextdm.app"
+  ]
+}
+

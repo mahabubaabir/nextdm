@@ -160,5 +160,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "nextdm_grab_media") {
+    handoff({
+      url: message.url,
+      referrer: message.pageUrl,
+      filename: message.title ? `${message.title.replace(/[\\/:*?"<>|]/g, "_")}.mp4` : null,
+    })
+      .then(() => {
+        flashBadge("✓");
+        sendResponse({ ok: true });
+      })
+      .catch((error) => {
+        flashBadge("!");
+        sendResponse({ ok: false, error: error.message });
+      });
+    return true;
+  }
+
   return undefined;
 });

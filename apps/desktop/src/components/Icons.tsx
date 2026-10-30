@@ -34,7 +34,10 @@ export type IconName =
   | "connections"
   | "monitor"
   | "file"
-  | "trash";
+  | "trash"
+  | "play"
+  | "arrowDown"
+  | "grid";
 
 export function Icon({
   name,
@@ -294,12 +297,116 @@ export function Icon({
           <path d="M13 3.5v5h5" />
         </svg>
       );
+    case "play":
+      return (
+        <svg {...common}>
+          <path d="M7 4.5 19 12 7 19.5Z" fill="currentColor" stroke="none" />
+        </svg>
+      );
+    case "arrowDown":
+      return (
+        <svg {...common}>
+          <path d="M12 4v12M6 10l6 6 6-6M4 20h16" />
+        </svg>
+      );
+    case "grid":
+      return (
+        <svg {...common}>
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="14" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+        </svg>
+      );
     default:
       return null;
   }
 }
 
-export function Logo({ size = 30 }: { size?: number }) {
+export function Logo({ size = 30, theme }: { size?: number; theme?: string }) {
+  const currentTheme = theme || (typeof document !== "undefined" ? document.documentElement.dataset.theme : "classic") || "classic";
+
+  if (currentTheme === "glass") {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 32 32"
+        role="img"
+        aria-label="NextDM logo"
+        className="nextdm-logo nextdm-logo-glass"
+      >
+        <defs>
+          <linearGradient id="glassBg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.45" />
+            <stop offset="100%" stopColor="#818cf8" stopOpacity="0.15" />
+          </linearGradient>
+          <linearGradient id="glassBorder" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0.2" />
+          </linearGradient>
+        </defs>
+        <rect
+          x="2"
+          y="2"
+          width="28"
+          height="28"
+          rx="8"
+          fill="url(#glassBg)"
+          stroke="url(#glassBorder)"
+          strokeWidth="1.2"
+        />
+        <path
+          d="M16 6.5v11.5M10.8 13.2 16 18.5l5.2-5.3"
+          fill="none"
+          stroke="#ffffff"
+          strokeWidth="2.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M8 21.5v1.5c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-1.5"
+          fill="none"
+          stroke="#ffffff"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  if (currentTheme === "material3") {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 32 32"
+        role="img"
+        aria-label="NextDM logo"
+        className="nextdm-logo nextdm-logo-m3"
+      >
+        <rect x="2" y="2" width="28" height="28" rx="10" fill="#d3e3fd" />
+        <path
+          d="M16 6.5v11.5M10.8 13.2 16 18.5l5.2-5.3"
+          fill="none"
+          stroke="#041e49"
+          strokeWidth="2.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M8 21.5v1.5c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-1.5"
+          fill="none"
+          stroke="#041e49"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
   return (
     <svg
       width={size}
@@ -307,25 +414,25 @@ export function Logo({ size = 30 }: { size?: number }) {
       viewBox="0 0 32 32"
       role="img"
       aria-label="NextDM logo"
-      className="nextdm-logo"
+      className="nextdm-logo nextdm-logo-bw"
     >
-      <defs>
-        <linearGradient id="nextdm-gradient" x1="4" y1="3" x2="27" y2="30" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#2f8cff" />
-          <stop offset="0.55" stopColor="#1f6fdd" />
-          <stop offset="1" stopColor="#124ea8" />
-        </linearGradient>
-      </defs>
-      <rect x="2" y="2" width="28" height="28" rx="7" fill="url(#nextdm-gradient)" />
+      <rect x="2" y="2" width="28" height="28" rx="7" fill="#0e0e10" stroke="rgba(255,255,255,0.2)" strokeWidth="0.8" />
       <path
-        d="M16 8.2v10.4M10.8 13.8 16 19l5.2-5.2"
+        d="M16 6.5v11.5M10.8 13.2 16 18.5l5.2-5.3"
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8 21.5v1.5c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-1.5"
         fill="none"
         stroke="#ffffff"
         strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path d="M9.5 23.4h13" stroke="#9cc8ff" strokeWidth="2.2" strokeLinecap="round" />
     </svg>
   );
 }

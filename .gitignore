@@ -9,5 +9,6 @@ dist/
 .env
 .env.local
 apps/desktop/src-tauri/gen/
+apps/desktop/src-tauri/bin/
 idm-alternative-for-linux-mint.json
 *.exe

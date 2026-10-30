@@ -405,6 +405,40 @@ impl Engine {
         Ok(record.map(|record| self.decorate(record)))
     }
 
+    pub fn get_segments(&self, id: Uuid) -> Result<Vec<Segment>> {
+        let record = self.inner.store.get(id)?;
+        Ok(record.map(|r| r.segments).unwrap_or_default())
+    }
+
+    pub async fn probe_url(&self, url: &str) -> Result<crate::types::ProbeResult> {
+        let url = url.trim();
+        let parsed = url::Url::parse(url)?;
+        if !matches!(parsed.scheme(), "http" | "https") {
+            return Err(Error::message("only http and https URLs are supported"));
+        }
+        let headers = std::collections::BTreeMap::new();
+        let probe = download::probe(&self.inner.client, url, &headers).await?;
+        let suggested = download::suggested_name(
+            None,
+            probe.disposition.as_deref(),
+            &probe.final_url,
+            probe.content_type.as_deref(),
+        );
+        let category = download::classify(&suggested).to_string();
+        let default_dir = self.inner.default_dir.lock().to_string_lossy().to_string();
+
+        Ok(crate::types::ProbeResult {
+            url: url.to_string(),
+            final_url: probe.final_url,
+            total_size: probe.total_size,
+            resumable: probe.resumable,
+            file_name: suggested,
+            category,
+            content_type: probe.content_type,
+            default_dir,
+        })
+    }
+
     pub fn list(&self) -> Result<Vec<DownloadInfo>> {
         let records = self.inner.store.list()?;
         Ok(records.into_iter().map(|record| self.decorate(record)).collect())
@@ -898,16 +932,17 @@ async fn progress_loop(
             Some(total) if speed > 0 && current < total => Some((total - current) / speed),
             _ => None,
         };
+        let snapshot = segments.lock().clone();
         inner.emit(EngineEvent::Progress {
             id,
             downloaded: current,
             total_size,
             speed,
             eta,
+            segments: snapshot.clone(),
         });
 
         if tick % 4 == 0 {
-            let snapshot = segments.lock().clone();
             if let Err(error) = inner.store.update_progress(id, current, &snapshot) {
                 warn!(%id, %error, "failed to persist download progress");
             }

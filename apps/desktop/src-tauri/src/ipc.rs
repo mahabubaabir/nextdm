@@ -129,6 +129,7 @@ async fn dispatch(app: &AppHandle, engine: &Engine, request: HostRequest) -> Hos
                 Ok(info) => {
                     info!(id = %info.id, file = %info.file_name, "browser download added");
                     show_main(app);
+                    let _ = tauri::Emitter::emit(app, "browser://download_added", &info);
                     HostResponse::ok().with_download(info.id.to_string())
                 }
                 Err(error) => HostResponse::error(error.to_string()),

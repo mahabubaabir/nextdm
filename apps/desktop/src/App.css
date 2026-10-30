@@ -66,6 +66,92 @@
   --focus: rgba(59, 143, 240, 0.45);
 }
 
+:root[data-theme="glass"] {
+  color-scheme: dark;
+  --bg: #090d16;
+  --panel: rgba(18, 25, 42, 0.72);
+  --surface: rgba(28, 38, 62, 0.65);
+  --surface-alt: rgba(23, 31, 52, 0.55);
+  --toolbar-top: rgba(30, 44, 72, 0.78);
+  --toolbar-bottom: rgba(18, 25, 44, 0.85);
+  --menubar: rgba(15, 22, 38, 0.82);
+  --border: rgba(255, 255, 255, 0.12);
+  --border-soft: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.22);
+  --text: #f1f5f9;
+  --text-soft: #cbd5e1;
+  --muted: #94a3b8;
+  --accent: #38bdf8;
+  --accent-hover: #7dd3fc;
+  --accent-soft: rgba(56, 189, 248, 0.2);
+  --accent-border: rgba(56, 189, 248, 0.45);
+  --selection: rgba(56, 189, 248, 0.3);
+  --header: rgba(30, 41, 64, 0.65);
+  --row-hover: rgba(56, 189, 248, 0.14);
+  --row-alt: rgba(15, 23, 42, 0.45);
+  --danger: #f87171;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 25px rgba(56, 189, 248, 0.15);
+  --shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --input-bg: rgba(15, 23, 42, 0.6);
+  --focus: rgba(56, 189, 248, 0.5);
+}
+
+:root[data-theme="glass"] .sidebar,
+:root[data-theme="glass"] .toolbar,
+:root[data-theme="glass"] .menubar,
+:root[data-theme="glass"] .modal,
+:root[data-theme="glass"] .table-container {
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+:root[data-theme="material3"] {
+  color-scheme: dark;
+  --bg: #111318;
+  --panel: #1d2026;
+  --surface: #22262f;
+  --surface-alt: #282c37;
+  --toolbar-top: #1e222a;
+  --toolbar-bottom: #1e222a;
+  --menubar: #161a22;
+  --border: #44474f;
+  --border-soft: #353840;
+  --border-strong: #74777f;
+  --text: #e2e2e9;
+  --text-soft: #c4c6d0;
+  --muted: #8e9099;
+  --accent: #a8c7fa;
+  --accent-hover: #c2e7ff;
+  --accent-soft: #0842a0;
+  --accent-border: #7cacf8;
+  --selection: #0b57d0;
+  --header: #1e222a;
+  --row-hover: #2b303b;
+  --row-alt: #1a1d24;
+  --danger: #f2b8b5;
+  --success: #a8dab5;
+  --warning: #f7d486;
+  --shadow: 0 1px 3px 1px rgba(0, 0, 0, 0.25), 0 4px 8px 3px rgba(0, 0, 0, 0.15);
+  --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --input-bg: #1d2026;
+  --focus: rgba(168, 199, 250, 0.5);
+}
+
+:root[data-theme="material3"] .sidebar-item {
+  border-radius: 9999px;
+  margin: 2px 8px;
+}
+
+:root[data-theme="material3"] .toolbar-button {
+  border-radius: 12px;
+}
+
+:root[data-theme="material3"] .modal {
+  border-radius: 20px;
+}
+
 * {
   box-sizing: border-box;
 }

@@ -1,0 +1,49 @@
+/* NextDM In-Browser Floating Video Grabber Badge */
+.nextdm-video-badge {
+  position: absolute !important;
+  z-index: 2147483647 !important;
+  top: 12px !important;
+  right: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background: rgba(14, 14, 16, 0.88) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  color: #ffffff !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  padding: 6px 12px !important;
+  border-radius: 9999px !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  opacity: 0.85 !important;
+}
+
+.nextdm-video-badge:hover {
+  opacity: 1 !important;
+  background: #000000 !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  transform: translateY(-1px) scale(1.02) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7) !important;
+}
+
+.nextdm-video-badge svg {
+  width: 14px !important;
+  height: 14px !important;
+  fill: none !important;
+  stroke: #ffffff !important;
+  stroke-width: 2.2 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+
+.nextdm-video-badge-active {
+  background: #1468d4 !important;
+  border-color: #3b8ff0 !important;
+}

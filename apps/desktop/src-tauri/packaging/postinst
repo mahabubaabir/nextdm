@@ -1,0 +1,47 @@
+#!/bin/sh
+set -e
+
+chmod 755 /usr/bin/nextdm-host 2>/dev/null || true
+ln -sf /usr/bin/nextdm-desktop /usr/bin/nextdm 2>/dev/null || true
+
+CHROMIUM_HOST_DIRS="
+/etc/chromium/native-messaging-hosts
+/etc/opt/chrome/native-messaging-hosts
+/etc/brave/native-messaging-hosts
+/etc/opt/edge/native-messaging-hosts
+/etc/vivaldi/native-messaging-hosts
+/etc/opera/native-messaging-hosts
+"
+
+for dir in $CHROMIUM_HOST_DIRS; do
+    mkdir -p "$dir" 2>/dev/null || true
+    if [ -f /usr/share/nextdm/com.nextdm.host.chromium.json ]; then
+        cp -f /usr/share/nextdm/com.nextdm.host.chromium.json "$dir/com.nextdm.host.json" 2>/dev/null || true
+        chmod 644 "$dir/com.nextdm.host.json" 2>/dev/null || true
+    fi
+done
+
+MOZILLA_HOST_DIRS="
+/usr/lib/mozilla/native-messaging-hosts
+/usr/lib/x86_64-linux-gnu/mozilla/native-messaging-hosts
+/usr/lib64/mozilla/native-messaging-hosts
+"
+
+for dir in $MOZILLA_HOST_DIRS; do
+    mkdir -p "$dir" 2>/dev/null || true
+    if [ -f /usr/share/nextdm/com.nextdm.host.firefox.json ]; then
+        cp -f /usr/share/nextdm/com.nextdm.host.firefox.json "$dir/com.nextdm.host.json" 2>/dev/null || true
+        chmod 644 "$dir/com.nextdm.host.json" 2>/dev/null || true
+    fi
+done
+
+if which update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database -q /usr/share/applications || true
+fi
+
+if which gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor 2>/dev/null || true
+fi
+
+exit 0
+

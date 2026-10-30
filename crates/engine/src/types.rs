@@ -183,6 +183,8 @@ pub enum EngineEvent {
         total_size: Option<u64>,
         speed: u64,
         eta: Option<u64>,
+        #[serde(default)]
+        segments: Vec<Segment>,
     },
     Completed {
         download: DownloadInfo,
@@ -190,6 +192,20 @@ pub enum EngineEvent {
     Removed {
         id: Uuid,
     },
+}
+
+/// Pre-flight URL probe response for UI confirmation dialogs.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProbeResult {
+    pub url: String,
+    pub final_url: String,
+    pub total_size: Option<u64>,
+    pub resumable: bool,
+    pub file_name: String,
+    pub category: String,
+    pub content_type: Option<String>,
+    pub default_dir: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
