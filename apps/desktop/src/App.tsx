@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
 
 import { MenuBar, type MenuDefinition } from "./components/MenuBar";
@@ -20,8 +18,8 @@ import { DownloadCompleteDialog } from "./components/DownloadCompleteDialog";
 import { OptionsDialog } from "./components/OptionsDialog";
 import { MediaDialog } from "./components/MediaDialog";
 import { Modal } from "./components/Modal";
-import { Icon, Logo } from "./components/Icons";
-import { DEFAULT_SETTINGS, categoryLabel, isDownloadableUrl, isMediaSiteUrl, isProbablyUrl } from "./lib";
+import { Logo } from "./components/Icons";
+import { DEFAULT_SETTINGS, categoryLabel, cx, isDownloadableUrl, isMediaSiteUrl, isProbablyUrl } from "./lib";
 import type {
   DownloadInfo,
   EngineEvent,
@@ -42,6 +40,18 @@ const STATUS_ORDER: Record<string, number> = {
   cancelled: 6,
   completed: 7,
 };
+
+interface SparkleParticle {
+  id: number;
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+  color: string;
+  char: string;
+  scale: number;
+  rotate: number;
+}
 
 function upsert(list: DownloadInfo[], download: DownloadInfo): DownloadInfo[] {
   const index = list.findIndex((item) => item.id === download.id);
@@ -65,7 +75,10 @@ function readSettings(raw: Record<string, unknown>, defaultDir: string): Setting
     notifications: raw.notifications === undefined ? true : Boolean(raw.notifications),
     confirmRemove: raw.confirm_remove === undefined ? true : Boolean(raw.confirm_remove),
     autoResume: raw.auto_resume === undefined ? true : Boolean(raw.auto_resume),
-    closeToTray: Boolean(raw.close_to_tray),
+    closeToTray: raw.close_to_tray === undefined ? true : Boolean(raw.close_to_tray),
+    videoBadgeStyle: raw.video_badge_style === "full" ? "full" : "compact",
+    compactView: Boolean(raw.compact_view),
+    autostart: true,
   };
 }
 
@@ -115,6 +128,41 @@ function App() {
   const dialogRef = useRef<string | null>(null);
   const clipboardSeen = useRef("");
   const toastCounter = useRef(0);
+  const [sparkles, setSparkles] = useState<SparkleParticle[]>([]);
+  const sparkleIdCounter = useRef(0);
+
+  const triggerSparkle = (event: React.MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const originX = event.clientX - rect.left;
+    const originY = event.clientY - rect.top;
+    const chars = ["✨", "⭐", "🌟", "💫", "✦", "✧"];
+    const colors = ["#ffd700", "#00f5ff", "#ff007f", "#bd00ff", "#00ff88", "#ff9900", "#ffffff"];
+    const count = 20;
+    const newSparkles: SparkleParticle[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * 2 * Math.PI + (Math.random() - 0.5) * 0.4;
+      const distance = 45 + Math.random() * 75;
+      const dx = Math.cos(angle) * distance;
+      const dy = Math.sin(angle) * distance;
+      newSparkles.push({
+        id: ++sparkleIdCounter.current,
+        x: originX,
+        y: originY,
+        dx,
+        dy,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        char: chars[Math.floor(Math.random() * chars.length)],
+        scale: 0.8 + Math.random() * 0.9,
+        rotate: Math.random() * 360 - 180,
+      });
+    }
+
+    setSparkles((cur) => [...cur, ...newSparkles]);
+    window.setTimeout(() => {
+      setSparkles((cur) => cur.filter((s) => !newSparkles.some((ns) => ns.id === s.id)));
+    }, 1100);
+  };
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -149,16 +197,19 @@ function App() {
 
     (async () => {
       try {
-        const [list, raw, directory, version] = await Promise.all([
+        const [list, raw, directory, version, autostart] = await Promise.all([
           invoke<DownloadInfo[]>("list_downloads"),
           invoke<Record<string, unknown>>("get_settings"),
           invoke<string>("default_download_dir"),
           invoke<string>("engine_version"),
+          invoke<boolean>("get_autostart").catch(() => false),
         ]);
         if (disposed) return;
         setDownloads(list);
         setEngineVersion(version);
-        setSettings((current) => ({ ...current, ...readSettings(raw, directory) }));
+        const parsed = readSettings(raw, directory);
+        parsed.autostart = Boolean(autostart);
+        setSettings((current) => ({ ...current, ...parsed }));
       } catch (error) {
         if (!disposed) notify("error", `Engine unavailable: ${String(error)}`);
       }
@@ -437,6 +488,9 @@ function App() {
         invoke("set_setting", { key: "confirm_remove", value: next.confirmRemove }),
         invoke("set_setting", { key: "auto_resume", value: next.autoResume }),
         invoke("set_setting", { key: "close_to_tray", value: next.closeToTray }),
+        invoke("set_setting", { key: "video_badge_style", value: next.videoBadgeStyle }),
+        invoke("set_setting", { key: "compact_view", value: next.compactView }),
+        invoke("set_autostart", { enabled: next.autostart }).catch(() => undefined),
         invoke("set_max_connections", { connections: next.maxConnections }),
         invoke("set_speed_limit", { bytesPerSecond: next.speedLimit }),
         invoke("set_default_dir", { path: next.defaultDir }),
@@ -556,7 +610,7 @@ function App() {
         { separator: true },
         { label: "Open Download Folder", onClick: downloadFolder },
         { separator: true },
-        { label: "Exit", onClick: () => getCurrentWindow().close() },
+        { label: "Exit", onClick: () => invoke("quit_app_cmd") },
       ],
     },
     {
@@ -597,6 +651,34 @@ function App() {
           onClick: () => changeTheme("system"),
         },
         { separator: true },
+        {
+          label: "Compact view (compact icons)",
+          checked: settings.compactView,
+          onClick: () => {
+            const nextCompact = !settings.compactView;
+            setSettings((cur) => ({ ...cur, compactView: nextCompact }));
+            invoke("set_setting", { key: "compact_view", value: nextCompact }).catch(() => undefined);
+          },
+        },
+        {
+          label: "In-Browser Video Grabber: Compact Icon (like IDM)",
+          checked: settings.videoBadgeStyle === "compact",
+          onClick: () => {
+            setSettings((cur) => ({ ...cur, videoBadgeStyle: "compact" }));
+            invoke("set_setting", { key: "video_badge_style", value: "compact" }).catch(() => undefined);
+            notify("info", "Browser video grabber set to Compact Icon.");
+          },
+        },
+        {
+          label: "In-Browser Video Grabber: Full Button",
+          checked: settings.videoBadgeStyle === "full",
+          onClick: () => {
+            setSettings((cur) => ({ ...cur, videoBadgeStyle: "full" }));
+            invoke("set_setting", { key: "video_badge_style", value: "full" }).catch(() => undefined);
+            notify("info", "Browser video grabber set to Full Button.");
+          },
+        },
+        { separator: true },
         { label: "Refresh", onClick: refresh },
       ],
     },
@@ -612,11 +694,6 @@ function App() {
       label: "Help",
       items: [
         { label: "About NextDM", onClick: () => setDialog("about") },
-        {
-          label: "Project on GitHub",
-          onClick: () =>
-            openUrl("https://github.com/mahabubaabir/nextdm").catch(() => undefined),
-        },
       ],
     },
   ];
@@ -702,7 +779,7 @@ function App() {
 
   return (
     <div
-      className="app"
+      className={cx("app", settings.compactView && "compact-mode")}
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => {
         event.preventDefault();
@@ -913,16 +990,10 @@ function App() {
         <Modal
           title="About NextDM"
           icon={<Logo size={20} />}
-          width={460}
+          width={480}
           onClose={() => setDialog(null)}
           footer={
             <div className="modal-actions">
-              <button
-                className="secondary-button"
-                onClick={() => openUrl("https://github.com/mahabubaabir/nextdm").catch(() => undefined)}
-              >
-                <Icon name="external" size={14} /> GitHub
-              </button>
               <button className="primary-button" onClick={() => setDialog(null)}>
                 Close
               </button>
@@ -932,13 +1003,49 @@ function App() {
           <div className="about">
             <Logo size={64} />
             <h2>NextDM {engineVersion}</h2>
-            <p className="about-tagline">A free, native download manager for Linux.</p>
+            <p className="about-tagline">High-Performance Download Manager for Linux.</p>
             <p>
               Segmented downloads, resume, browser handoff and site media downloads. No ads, no
               telemetry, no account.
             </p>
+            <div
+              className="about-creator-box"
+              onClick={triggerSparkle}
+              title="Click for magic ✨"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  triggerSparkle(e as unknown as React.MouseEvent<HTMLDivElement>);
+                }
+              }}
+            >
+              <span className="about-creator-label">Created by</span>
+              <strong className="about-creator-name">Marbor Tech by Mahabub H. Aabir</strong>
+              <span className="about-creator-stars">✨ Click for sparkles! ✨</span>
+              {sparkles.map((sp) => (
+                <span
+                  key={sp.id}
+                  className="sparkle-particle"
+                  style={
+                    {
+                      left: `${sp.x}px`,
+                      top: `${sp.y}px`,
+                      color: sp.color,
+                      "--dx": `${sp.dx}px`,
+                      "--dy": `${sp.dy}px`,
+                      "--scale": sp.scale,
+                      "--rot": `${sp.rotate}deg`,
+                    } as React.CSSProperties
+                  }
+                >
+                  {sp.char}
+                </span>
+              ))}
+            </div>
             <p className="muted">
-              Licensed under GPL-3.0-or-later. NextDM is a free, independent open-source project.
+              NextDM is an independent, free software release for Linux Mint and Debian-based systems.
             </p>
           </div>
         </Modal>

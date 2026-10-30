@@ -35,6 +35,7 @@ pub enum HostRequest {
     },
     ShowWindow,
     GetVersion,
+    GetConfig,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

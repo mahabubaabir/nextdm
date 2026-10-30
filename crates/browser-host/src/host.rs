@@ -50,9 +50,10 @@ pub fn run_native_host() -> i32 {
 
 fn handle(request: HostRequest) -> HostResponse {
     let response_timeout = match &request {
-        HostRequest::Ping | HostRequest::ShowWindow | HostRequest::GetVersion => {
-            Duration::from_secs(4)
-        }
+        HostRequest::Ping
+        | HostRequest::ShowWindow
+        | HostRequest::GetVersion
+        | HostRequest::GetConfig => Duration::from_secs(4),
         HostRequest::AddDownload { .. } => Duration::from_secs(180),
         HostRequest::ProbeMedia { .. } => Duration::from_secs(300),
     };

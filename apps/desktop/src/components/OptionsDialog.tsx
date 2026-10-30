@@ -145,6 +145,14 @@ export function OptionsDialog({
                   <option value="system">Follow system</option>
                 </select>
               </label>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={draft.compactView}
+                  onChange={(event) => update("compactView", event.target.checked)}
+                />
+                <span>Compact toolbar & interface mode</span>
+              </label>
 
               <h3>Downloads folder</h3>
               <div className="input-row">
@@ -167,6 +175,24 @@ export function OptionsDialog({
                   <Icon name="folder" size={14} /> Browse
                 </button>
               </div>
+
+              <h3>Startup & System</h3>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={draft.autostart}
+                  onChange={(event) => update("autostart", event.target.checked)}
+                />
+                <span>Launch NextDM automatically on system startup</span>
+              </label>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={draft.closeToTray}
+                  onChange={(event) => update("closeToTray", event.target.checked)}
+                />
+                <span>Keep NextDM running in background / system tray when the window is closed</span>
+              </label>
 
               <h3>Behavior</h3>
               <label className="checkbox-row">
@@ -192,14 +218,6 @@ export function OptionsDialog({
                   onChange={(event) => update("confirmRemove", event.target.checked)}
                 />
                 <span>Ask for confirmation before removing downloads</span>
-              </label>
-              <label className="checkbox-row">
-                <input
-                  type="checkbox"
-                  checked={draft.closeToTray}
-                  onChange={(event) => update("closeToTray", event.target.checked)}
-                />
-                <span>Keep NextDM running in the system tray when the window is closed</span>
               </label>
             </section>
           ) : null}
@@ -324,6 +342,23 @@ export function OptionsDialog({
                 {browserBusy ? "Installing…" : "Install for Chromium and Firefox"}
               </button>
               {browserResult ? <pre className="browser-result">{browserResult}</pre> : null}
+
+              <h3>Video download panel (in browsers)</h3>
+              <p className="option-note">
+                Choose how the floating grabber badge appears on YouTube, Facebook and video pages:
+              </p>
+              <label className="option-row">
+                <span>Floating badge style</span>
+                <select
+                  value={draft.videoBadgeStyle}
+                  onChange={(event) =>
+                    update("videoBadgeStyle", event.target.value as "compact" | "full")
+                  }
+                >
+                  <option value="compact">Compact Icon Only (like IDM mini grabber)</option>
+                  <option value="full">Download Video (Full button)</option>
+                </select>
+              </label>
               <p className="option-note">
                 Supported: Chromium, Chrome, Brave, Edge, Vivaldi and Firefox. The integration listens only
                 on the local machine and never opens a public port.

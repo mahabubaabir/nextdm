@@ -122,7 +122,19 @@ fn is_media_site_url(url: &str) -> bool {
 
 async fn dispatch(app: &AppHandle, engine: &Engine, request: HostRequest) -> HostResponse {
     match request {
-        HostRequest::Ping => HostResponse::ok(),
+        HostRequest::Ping | HostRequest::GetConfig => {
+            let badge_style = engine
+                .setting("video_badge_style")
+                .ok()
+                .flatten()
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_else(|| "compact".to_string());
+            let mut res = HostResponse::ok();
+            res.data = Some(serde_json::json!({
+                "badgeStyle": badge_style
+            }));
+            res
+        }
         HostRequest::GetVersion => {
             HostResponse::ok().with_version(env!("CARGO_PKG_VERSION"))
         }

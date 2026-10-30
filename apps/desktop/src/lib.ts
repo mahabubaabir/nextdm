@@ -19,7 +19,10 @@ export const DEFAULT_SETTINGS: Settings = {
   notifications: true,
   confirmRemove: true,
   autoResume: true,
-  closeToTray: false,
+  closeToTray: true,
+  videoBadgeStyle: "compact",
+  compactView: false,
+  autostart: true,
 };
 
 const STATUS_LABELS: Record<DownloadStatus, string> = {

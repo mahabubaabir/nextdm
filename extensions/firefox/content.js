@@ -24,7 +24,7 @@
   });
 
   function updateBadgeStyle(badge) {
-    if (currentBadgeStyle === "icon") {
+    if (currentBadgeStyle === "icon" || currentBadgeStyle === "compact") {
       badge.classList.add("nextdm-badge-icon-only");
       badge.classList.remove("nextdm-badge-full");
       badge.title = "Download Video with NextDM (Click to download, Right-click to switch style)";

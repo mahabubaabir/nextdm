@@ -35,6 +35,19 @@ function nativeMessage(message) {
   });
 }
 
+function syncHostSettings() {
+  nativeMessage({ type: "ping" })
+    .then((res) => {
+      if (res && res.data && res.data.badgeStyle) {
+        chrome.storage.local.set({ badgeStyle: res.data.badgeStyle });
+      }
+    })
+    .catch(() => undefined);
+}
+
+syncHostSettings();
+setInterval(syncHostSettings, 15000);
+
 function cookiesFor(url) {
   return new Promise((resolve) => {
     chrome.cookies.getAll({ url }, (cookies) => {

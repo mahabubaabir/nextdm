@@ -290,6 +290,60 @@ fn install_browser_integration(chromium: bool, firefox: bool) -> Result<Vec<Stri
     integration::install(chromium, firefox)
 }
 
+#[tauri::command]
+fn quit_app_cmd(app: tauri::AppHandle) {
+    quit_app(&app);
+}
+
+#[tauri::command]
+fn get_autostart(app: tauri::AppHandle) -> Result<bool, String> {
+    use tauri::Manager;
+    let config_dir = app.path().config_dir().map_err(|e| e.to_string())?;
+    let desktop_file = config_dir.join("autostart").join("nextdm.desktop");
+    Ok(desktop_file.exists())
+}
+
+#[tauri::command]
+fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    use tauri::Manager;
+    let config_dir = app.path().config_dir().map_err(|e| e.to_string())?;
+    let autostart_dir = config_dir.join("autostart");
+    let desktop_file = autostart_dir.join("nextdm.desktop");
+
+    if !enabled {
+        if desktop_file.exists() {
+            let _ = std::fs::remove_file(desktop_file);
+        }
+        return Ok(());
+    }
+
+    std::fs::create_dir_all(&autostart_dir).map_err(|e| e.to_string())?;
+
+    let exec_cmd = if std::path::Path::new("/usr/bin/nextdm-desktop").exists() {
+        "/usr/bin/nextdm-desktop --background".to_string()
+    } else if let Ok(current) = std::env::current_exe() {
+        format!("{} --background", current.to_string_lossy())
+    } else {
+        "nextdm-desktop --background".to_string()
+    };
+
+    let content = format!(
+        "[Desktop Entry]\n\
+         Type=Application\n\
+         Name=NextDM\n\
+         Comment=NextDM Download Manager\n\
+         Exec={exec_cmd}\n\
+         Icon=nextdm\n\
+         Terminal=false\n\
+         Categories=Network;FileTransfer;\n\
+         StartupNotify=false\n\
+         X-GNOME-Autostart-enabled=true\n"
+    );
+
+    std::fs::write(&desktop_file, content).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 /// If another NextDM instance already owns the IPC socket, ask it to show its
 /// window and report success so this process can exit.
 fn forward_to_running_instance() -> bool {
@@ -482,9 +536,9 @@ pub fn run() {
                                 .ok()
                                 .flatten()
                                 .and_then(|value| value.as_bool())
-                                .unwrap_or(false)
+                                .unwrap_or(true)
                     })
-                    .unwrap_or(false);
+                    .unwrap_or(true);
 
                 if keep_running {
                     api.prevent_close();
@@ -523,6 +577,9 @@ pub fn run() {
             get_segments,
             engine_version,
             install_browser_integration,
+            quit_app_cmd,
+            get_autostart,
+            set_autostart,
         ])
         .run(tauri::generate_context!())
         .expect("error while running NextDM");

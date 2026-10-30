@@ -104,6 +104,9 @@ export interface Settings {
   confirmRemove: boolean;
   autoResume: boolean;
   closeToTray: boolean;
+  videoBadgeStyle: "compact" | "full";
+  compactView: boolean;
+  autostart: boolean;
 }
 
 export type Filter =

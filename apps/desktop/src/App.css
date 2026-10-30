@@ -1652,6 +1652,104 @@ select:focus,
   font-size: 11px;
 }
 
+/* ---------- Compact Mode ---------- */
+
+.app.compact-mode .toolbar {
+  padding: 4px 8px;
+  gap: 3px;
+}
+
+.app.compact-mode .toolbar-button {
+  padding: 4px 8px;
+  font-size: 11.5px;
+  gap: 5px;
+}
+
+.app.compact-mode .toolbar-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.app.compact-mode .download-row td {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+/* ---------- About Creator & Sparkle Burst ---------- */
+
+.about-creator-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 10px 0 4px;
+  padding: 10px 24px;
+  border-radius: 12px;
+  background: var(--surface-overlay);
+  border: 1px solid var(--border-soft);
+  cursor: pointer;
+  user-select: none;
+  overflow: visible;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.about-creator-box:hover {
+  transform: translateY(-1px) scale(1.02);
+  border-color: var(--accent);
+  box-shadow: 0 4px 18px rgba(0, 168, 255, 0.2);
+}
+
+.about-creator-box:active {
+  transform: scale(0.98);
+}
+
+.about-creator-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.about-creator-name {
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 50%, #f06292 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.about-creator-stars {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.sparkle-particle {
+  position: absolute;
+  pointer-events: none;
+  font-size: 17px;
+  line-height: 1;
+  user-select: none;
+  z-index: 100;
+  animation: sparkleBurst 0.95s cubic-bezier(0.12, 0.85, 0.32, 1) forwards;
+}
+
+@keyframes sparkleBurst {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.4) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), var(--dy)) scale(var(--scale)) rotate(var(--rot));
+  }
+}
+
 /* ---------- focus ---------- */
 
 button:focus-visible,

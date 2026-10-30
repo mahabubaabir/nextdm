@@ -1,65 +1,92 @@
 # NextDM
 
-A free, native download manager for Linux: multi-connection segmented transfers,
-pause/resume, browser takeover, category filtering and site media downloads.
-No ads, no telemetry, no account.
+<p align="center">
+  <strong>The Modern, High-Speed Download Manager for Linux</strong><br>
+  <em>Crafted by <strong>Marbor Tech by Mahabub H. Aabir</strong></em>
+</p>
+
+<p align="center">
+  <a href="https://github.com/mahabubaabir/nextdm/releases/latest"><img src="https://img.shields.io/badge/Release-v0.1.0--amd64-blue.svg?style=flat-square" alt="Release"></a>
+  <img src="https://img.shields.io/badge/Platform-Linux%20Mint%20%7C%20Ubuntu%20%7C%20Debian-emerald.svg?style=flat-square" alt="Platform">
+  <img src="https://img.shields.io/badge/License-GPL--3.0-orange.svg?style=flat-square" alt="License">
+  <img src="https://img.shields.io/badge/Privacy-100%25%20Local-purple.svg?style=flat-square" alt="Privacy">
+</p>
+
+---
 
 ![NextDM](docs/screenshots/nextdm-window.png)
 
-## Features
+NextDM is a fast, native download manager built specifically for Linux (Linux Mint, Ubuntu, Debian, and derivatives). It provides segmented multi-connection acceleration, intelligent download interception, in-browser floating video downloader, and seamless background tray integration — without ads, telemetry, or account requirements.
 
-- **Segmented HTTP downloads** with up to 32 parallel connections per file.
-- **Pre-download file probe & confirmation dialog** ("Download File Info") with remote file size detection, resume validation, folder suggestions, and category selection before downloading.
-- **Real-time connection chunk visualizer** displaying live multi-colored thread byte partitions and download progress.
-- **Download complete dialog** with synthesized chime and direct Nemo file manager integration (`Open File` / `Open Folder`).
-- **Resume support** after pause, network loss, crash or restart. Partial files are validated against the remote ETag / Last-Modified value before continuing.
-- **Pause, resume, cancel and remove** individually or in bulk.
-- **Standalone `nextdm-host` messaging bridge** with auto browser detection and zero-config `.deb` installation for Chrome, Chromium, Brave, Edge, Vivaldi and Firefox.
-- **In-browser floating video grabber** badge above web video players (YouTube, Facebook, HTML5 video).
-- **Clipboard URL sniffer** with download prompts for popular file formats.
-- **Multi-theme engine** supporting:
-  - **Liquid Glass**: Modern frosted translucent glassmorphism with blur and glass gradients.
-  - **Material 3 Expressive**: Rounded cards, tonal elevations, and M3 styling.
-  - **Classic Linux Mint** and **Dark Mode**.
-  - **Theme-adaptive app icon** matching the active desktop theme.
-- **Media downloads** from YouTube, Facebook and thousands of other sites via `yt-dlp`, with a quality picker and automatic audio/video merging.
-- **Categories, search, sorting and filters** for documents, music, video, programs, compressed files and images.
-- **Global speed limiter** and configurable default connection count.
-- **Everything local.** The database and settings live under `~/.local/share/com.nextdm.app`. No ads, no telemetry, no account.
+---
 
-## Quick Installation on Linux Mint / Ubuntu / Debian
+## ⚡ Quick Download & Install (For Everyone)
 
-Download the zero-config Debian package from the [Releases](https://github.com/mahabubaabir/nextdm/releases) or the `releases/` directory:
+The easiest way to install NextDM on Linux Mint, Ubuntu, or Debian is using the pre-built `.deb` package:
 
+### 1. Download the Debian Package
+👉 **[Download NextDM 0.1.0 (.deb)](https://github.com/mahabubaabir/nextdm/releases/download/v0.1.0/NextDM_0.1.0_amd64.deb)**
+
+### 2. Install with One Command
+Open your terminal in your download folder and run:
 ```bash
-sudo dpkg -i releases/nextdm_0.1.0_amd64.deb
+sudo dpkg -i NextDM_0.1.0_amd64.deb
 ```
+*(Or simply double-click the `.deb` file in your file manager to install via the Software Manager).*
 
-The package automatically configures browser native messaging manifests for Chrome, Chromium, Brave, Edge, Vivaldi and Firefox.
+### 3. Launch & Enjoy!
+Launch **NextDM** from your application menu or search bar. NextDM automatically registers system tray icons, autostart options, and browser integration.
 
-## Requirements
+---
 
-Runtime:
+## 🌟 Highlights & Key Features
 
-- Linux with GTK 3 and WebKitGTK 4.1 (Linux Mint 22+, Ubuntu 24.04+, Debian 13+,
-  Fedora 40+ and similar).
-- Optional: `yt-dlp` and `ffmpeg` for site media downloads. NextDM uses its own
-  engine for direct links; media sites are handled by `yt-dlp` because their
-  extraction logic changes constantly.
+- ⚡ **Multi-Connection Segmented Downloads**: Accelerate transfers with up to 32 parallel threads per file.
+- 🎬 **In-Browser Video Grabber**: Floating download badge above web video players (YouTube, Facebook, Twitter, TikTok, and HTML5 players). Choose between a **Full Panel** or **Compact Icon** (like IDM's mini badge) right from the app.
+- 📋 **Pre-Download File Inspector ("Download File Info")**: Detects file sizes, file types, resume support, and suggests download folders before you start.
+- 🎨 **Adaptive Theme Engine**:
+  - **Liquid Glass**: Trending frosted translucent glassmorphism with dynamic gradients.
+  - **Material 3 Expressive**: Modern rounded surface styling.
+  - **Classic Linux Mint** & **Modern Dark Mode**.
+  - **Monochrome Transparent Iconography**: Clean, minimalist vector icons that adapt seamlessly to light and dark themes.
+- 🔄 **Smart Resume & Crash Recovery**: Interrupted transfers automatically resume from the last byte without corrupting files.
+- 🚀 **Background System Tray & Autostart**: NextDM stays quietly in your system tray catching downloads and launches automatically on system boot.
+- 🌐 **Browser Integration**: Automatic takeover for Chromium, Google Chrome, Brave, Microsoft Edge, Vivaldi, and Mozilla Firefox.
+- 🔒 **100% Private & Free**: Zero tracking, zero ads, zero cloud telemetry. All settings and database files stay on your machine.
 
-Build:
+---
 
+## 🌐 Browser Integration Setup
+
+NextDM integrates with your favorite web browsers using native messaging:
+
+1. In NextDM, open **Options → Browser** and click **Install for Chromium and Firefox**.
+2. Load the companion extension once:
+   - **Chrome / Chromium / Brave / Edge / Vivaldi**: Go to `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select `~/.local/share/nextdm/browser-extension/chromium`.
+   - **Firefox**: Go to `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**, and choose `~/.local/share/nextdm/browser-extension/firefox/manifest.json`.
+
+---
+
+## 🛠️ System Requirements
+
+- **Supported OS**: Linux Mint 21+, Ubuntu 22.04+, Debian 12+, or any modern GTK3 Linux distribution.
+- **Optional Helper**: `yt-dlp` and `ffmpeg` for extracting and muxing high-resolution streams from video sites (`sudo apt install yt-dlp ffmpeg`).
+
+---
+
+<details>
+<summary><b>🔧 Building from Source (For Developers)</b></summary>
+
+### Prerequisites
 - Rust 1.85+ (`rustup`)
 - Node.js 20+
-- Development packages for Tauri 2:
+- System libraries:
+  ```bash
+  sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
+    libayatana-appindicator3-dev patchelf build-essential curl wget file
+  ```
 
-```bash
-sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev \
-  libayatana-appindicator3-dev patchelf build-essential curl wget file
-```
-
-## Build and run
-
+### Development
 ```bash
 git clone https://github.com/mahabubaabir/nextdm.git
 cd nextdm/apps/desktop
@@ -67,82 +94,15 @@ npm install
 npm run tauri dev
 ```
 
-Create release bundles (`.deb`, AppImage and others enabled by your toolchain):
-
+### Build .deb Package
 ```bash
-npm run tauri build
+npm run tauri build -- --bundles deb
 ```
+</details>
 
-Artifacts are written to `apps/desktop/src-tauri/target/release/bundle/`.
+---
 
-## Browser integration
+## 📄 License & Credits
 
-Open **Options → Browser** and click **Install for Chromium and Firefox**.
-NextDM writes the native-messaging manifests and unpacks the extensions under
-`~/.local/share/nextdm/`.
-
-Then load the extension once per browser:
-
-- **Chromium / Chrome / Brave / Edge / Vivaldi**: open `chrome://extensions`,
-  enable **Developer mode**, choose **Load unpacked** and select
-  `~/.local/share/nextdm/browser-extension/chromium`.
-- **Firefox**: open `about:debugging#/runtime/this-firefox`, choose
-  **Load Temporary Add-on** and select
-  `~/.local/share/nextdm/browser-extension/firefox/manifest.json`. Firefox
-  removes temporary add-ons on restart; re-load it after restarting, or install
-  a signed build from AMO once published.
-
-Restart the browser after installing the native host. The extension cancels
-browser downloads, forwards the URL, cookies and referrer to NextDM, and falls
-back to the normal browser download if NextDM cannot be reached. A
-**Download with NextDM** item is also added to the page context menu.
-
-The native host is a small stdio bridge. It talks to the running app over a
-private Unix socket in `$XDG_RUNTIME_DIR` (fallback `~/.cache/nextdm/`) and
-never opens a network port.
-
-## Media downloads
-
-Install the helper tools:
-
-```bash
-sudo apt install yt-dlp ffmpeg
-# or a newer yt-dlp:
-python3 -m pip install -U yt-dlp
-```
-
-Use **Media** in the toolbar (or **File → Download Video…**), paste a link,
-press **Analyze**, choose a quality and download. `ffmpeg` is required when a
-site serves video and audio as separate streams.
-
-Set `NEXTDM_YTDLP=/path/to/yt-dlp` to use a specific binary.
-
-## Architecture
-
-```
-apps/desktop        Tauri 2 shell + React/TypeScript UI
-crates/engine       Segmented HTTP engine, SQLite persistence, resume, limits
-crates/media        yt-dlp probe/download bridge
-crates/browser-host Native-messaging framing, local IPC and host entrypoint
-extensions/         Chromium (MV3) and Firefox extensions
-```
-
-The engine is UI-independent and has integration tests that run against a local
-HTTP server supporting and ignoring range requests. The Tauri layer forwards
-engine events to React and exposes commands for downloads, settings, media and
-browser integration.
-
-## Tests
-
-```bash
-cargo test -p nextdm-engine
-cargo check --workspace
-cd apps/desktop && npm run build
-```
-
-## License
-
-GPL-3.0-or-later. See [LICENSE](LICENSE).
-
-NextDM is provided as-is, without warranty. Downloading media may be subject to
-the terms of service of the site you use.
+- Licensed under **GPL-3.0-or-later**.
+- NextDM is created and maintained by **Marbor Tech by Mahabub H. Aabir**.
