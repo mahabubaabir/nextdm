@@ -6,8 +6,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mahabubaabir/nextdm/releases/latest"><img src="https://img.shields.io/badge/Release-v0.1.0--amd64-blue.svg?style=flat-square" alt="Release"></a>
-  <img src="https://img.shields.io/badge/Platform-Linux%20Mint%20%7C%20Ubuntu%20%7C%20Debian-emerald.svg?style=flat-square" alt="Platform">
+  <a href="https://github.com/mahabubaabir/nextdm/releases/latest"><img src="https://img.shields.io/badge/Release-v0.1.0-blue.svg?style=flat-square" alt="Release"></a>
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20Mint%20%7C%20Ubuntu-emerald.svg?style=flat-square" alt="Platform">
   <img src="https://img.shields.io/badge/License-GPL--3.0-orange.svg?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/Privacy-100%25%20Local-purple.svg?style=flat-square" alt="Privacy">
 </p>
@@ -16,26 +16,20 @@
 
 ![NextDM](docs/screenshots/nextdm-window.png)
 
-NextDM is a fast, native download manager built specifically for Linux (Linux Mint, Ubuntu, Debian, and derivatives). It provides segmented multi-connection acceleration, intelligent download interception, in-browser floating video downloader, and seamless background tray integration — without ads, telemetry, or account requirements.
+NextDM is a fast, native download manager built for Windows and Linux (Linux Mint, Ubuntu, Debian, and derivatives). It provides segmented multi-connection acceleration, intelligent download interception, in-browser floating video downloader, and seamless background tray integration — without ads, telemetry, or account requirements.
 
 ---
 
 ## ⚡ Quick Download & Install (For Everyone)
 
-The easiest way to install NextDM on Linux Mint, Ubuntu, or Debian is using the pre-built `.deb` package:
+Choose the installer for your computer:
 
-### 1. Download the Debian Package
-👉 **[Download NextDM 0.1.0 (.deb)](https://github.com/mahabubaabir/nextdm/releases/download/v0.1.0/NextDM_0.1.0_amd64.deb)**
+### 🪟 Windows (11 / 10 / 8 / 7)
+- 📦 **[Download Windows Setup Installer (.exe)](https://github.com/mahabubaabir/nextdm/releases/download/v0.1.0/NextDM_0.1.0_x64-setup.exe)** — *Recommended: 1-click installer with start menu & tray integration.*
+- 🚀 **[Download Windows Standalone Portable (.exe)](https://github.com/mahabubaabir/nextdm/releases/download/v0.1.0/NextDM_0.1.0_x64_portable.exe)** — *No installation needed, run directly on any Windows PC.*
 
-### 2. Install with One Command
-Open your terminal in your download folder and run:
-```bash
-sudo dpkg -i NextDM_0.1.0_amd64.deb
-```
-*(Or simply double-click the `.deb` file in your file manager to install via the Software Manager).*
-
-### 3. Launch & Enjoy!
-Launch **NextDM** from your application menu or search bar. NextDM automatically registers system tray icons, autostart options, and browser integration.
+### 🐧 Linux (Linux Mint / Ubuntu / Debian)
+- 📦 **[Download NextDM 0.1.0 (.deb)](https://github.com/mahabubaabir/nextdm/releases/download/v0.1.0/NextDM_0.1.0_amd64.deb)** — *Install with `sudo dpkg -i NextDM_0.1.0_amd64.deb` or double-click to install.*
 
 ---
 
