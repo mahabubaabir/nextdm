@@ -17,6 +17,7 @@ import { DownloadProgressDialog } from "./components/DownloadProgressDialog";
 import { DownloadCompleteDialog } from "./components/DownloadCompleteDialog";
 import { OptionsDialog } from "./components/OptionsDialog";
 import { MediaDialog } from "./components/MediaDialog";
+import { AboutView } from "./components/AboutView";
 import { Modal } from "./components/Modal";
 import { Logo } from "./components/Icons";
 import { DEFAULT_SETTINGS, categoryLabel, cx, isDownloadableUrl, isMediaSiteUrl, isProbablyUrl } from "./lib";
@@ -40,18 +41,6 @@ const STATUS_ORDER: Record<string, number> = {
   cancelled: 6,
   completed: 7,
 };
-
-interface SparkleParticle {
-  id: number;
-  x: number;
-  y: number;
-  dx: number;
-  dy: number;
-  color: string;
-  char: string;
-  scale: number;
-  rotate: number;
-}
 
 function upsert(list: DownloadInfo[], download: DownloadInfo): DownloadInfo[] {
   const index = list.findIndex((item) => item.id === download.id);
@@ -128,41 +117,6 @@ function App() {
   const dialogRef = useRef<string | null>(null);
   const clipboardSeen = useRef("");
   const toastCounter = useRef(0);
-  const [sparkles, setSparkles] = useState<SparkleParticle[]>([]);
-  const sparkleIdCounter = useRef(0);
-
-  const triggerSparkle = (event: React.MouseEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const originX = event.clientX - rect.left;
-    const originY = event.clientY - rect.top;
-    const chars = ["✨", "⭐", "🌟", "💫", "✦", "✧"];
-    const colors = ["#ffd700", "#00f5ff", "#ff007f", "#bd00ff", "#00ff88", "#ff9900", "#ffffff"];
-    const count = 20;
-    const newSparkles: SparkleParticle[] = [];
-
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * 2 * Math.PI + (Math.random() - 0.5) * 0.4;
-      const distance = 45 + Math.random() * 75;
-      const dx = Math.cos(angle) * distance;
-      const dy = Math.sin(angle) * distance;
-      newSparkles.push({
-        id: ++sparkleIdCounter.current,
-        x: originX,
-        y: originY,
-        dx,
-        dy,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        char: chars[Math.floor(Math.random() * chars.length)],
-        scale: 0.8 + Math.random() * 0.9,
-        rotate: Math.random() * 360 - 180,
-      });
-    }
-
-    setSparkles((cur) => [...cur, ...newSparkles]);
-    window.setTimeout(() => {
-      setSparkles((cur) => cur.filter((s) => !newSparkles.some((ns) => ns.id === s.id)));
-    }, 1100);
-  };
 
   useEffect(() => {
     settingsRef.current = settings;
@@ -989,8 +943,8 @@ function App() {
       {dialog === "about" ? (
         <Modal
           title="About NextDM"
-          icon={<Logo size={20} />}
-          width={480}
+          icon={<Logo size={18} />}
+          width={680}
           onClose={() => setDialog(null)}
           footer={
             <div className="modal-actions">
@@ -1000,54 +954,7 @@ function App() {
             </div>
           }
         >
-          <div className="about">
-            <Logo size={64} />
-            <h2>NextDM {engineVersion}</h2>
-            <p className="about-tagline">High-Performance Download Manager for Linux.</p>
-            <p>
-              Segmented downloads, resume, browser handoff and site media downloads. No ads, no
-              telemetry, no account.
-            </p>
-            <div
-              className="about-creator-box"
-              onClick={triggerSparkle}
-              title="Click for magic ✨"
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  triggerSparkle(e as unknown as React.MouseEvent<HTMLDivElement>);
-                }
-              }}
-            >
-              <span className="about-creator-label">Created by</span>
-              <strong className="about-creator-name">Marbor Tech by Mahabub H. Aabir</strong>
-              <span className="about-creator-stars">✨ Click for sparkles! ✨</span>
-              {sparkles.map((sp) => (
-                <span
-                  key={sp.id}
-                  className="sparkle-particle"
-                  style={
-                    {
-                      left: `${sp.x}px`,
-                      top: `${sp.y}px`,
-                      color: sp.color,
-                      "--dx": `${sp.dx}px`,
-                      "--dy": `${sp.dy}px`,
-                      "--scale": sp.scale,
-                      "--rot": `${sp.rotate}deg`,
-                    } as React.CSSProperties
-                  }
-                >
-                  {sp.char}
-                </span>
-              ))}
-            </div>
-            <p className="muted">
-              NextDM is an independent, free software release for Linux Mint and Debian-based systems.
-            </p>
-          </div>
+          <AboutView engineVersion={engineVersion} />
         </Modal>
       ) : null}
 

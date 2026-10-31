@@ -4,6 +4,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Modal } from "./Modal";
 import { Icon, type IconName } from "./Icons";
+import { AboutView } from "./AboutView";
 import { cx } from "../lib";
 import type { Settings } from "../types";
 
@@ -16,7 +17,7 @@ const TABS: Array<{ id: Tab; label: string; icon: IconName }> = [
   { id: "speed", label: "Speed Limit", icon: "speed" },
   { id: "media", label: "Media", icon: "media" },
   { id: "browser", label: "Browser", icon: "globe" },
-  { id: "advanced", label: "Advanced", icon: "monitor" },
+  { id: "advanced", label: "About", icon: "info" },
 ];
 
 export function OptionsDialog({
@@ -505,21 +506,7 @@ export function OptionsDialog({
 
           {tab === "advanced" ? (
             <section className="option-section">
-              <h3>About this build</h3>
-              <p className="option-note">
-                NextDM 0.1.0 · GPL-3.0-or-later · Free and open source. No ads, no telemetry, no account.
-              </p>
-              <div className="inline-field">
-                <button
-                  className="secondary-button compact"
-                  onClick={() => invoke("open_path", { path: draft.defaultDir }).catch(() => undefined)}
-                >
-                  <Icon name="folder" size={14} /> Open download folder
-                </button>
-                <button className="secondary-button compact" onClick={() => setDraft(settings)}>
-                  <Icon name="refresh" size={14} /> Revert changes
-                </button>
-              </div>
+              <AboutView engineVersion="0.1.0" />
             </section>
           ) : null}
         </div>
