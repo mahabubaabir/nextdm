@@ -4,7 +4,6 @@ mod integration;
 mod ipc;
 
 use std::collections::BTreeMap;
-use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -298,71 +297,93 @@ fn quit_app_cmd(app: tauri::AppHandle) {
 #[tauri::command]
 fn get_autostart(app: tauri::AppHandle) -> Result<bool, String> {
     use tauri::Manager;
-    let config_dir = app.path().config_dir().map_err(|e| e.to_string())?;
-    let desktop_file = config_dir.join("autostart").join("nextdm.desktop");
-    Ok(desktop_file.exists())
+    #[cfg(unix)]
+    {
+        let config_dir = app.path().config_dir().map_err(|e| e.to_string())?;
+        let desktop_file = config_dir.join("autostart").join("nextdm.desktop");
+        Ok(desktop_file.exists())
+    }
+    #[cfg(windows)]
+    {
+        if let Some(appdata) = std::env::var_os("APPDATA") {
+            let startup = std::path::PathBuf::from(appdata)
+                .join(r"Microsoft\Windows\Start Menu\Programs\Startup")
+                .join("NextDM.bat");
+            return Ok(startup.exists());
+        }
+        Ok(false)
+    }
 }
 
 #[tauri::command]
 fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     use tauri::Manager;
-    let config_dir = app.path().config_dir().map_err(|e| e.to_string())?;
-    let autostart_dir = config_dir.join("autostart");
-    let desktop_file = autostart_dir.join("nextdm.desktop");
+    #[cfg(unix)]
+    {
+        let config_dir = app.path().config_dir().map_err(|e| e.to_string())?;
+        let autostart_dir = config_dir.join("autostart");
+        let desktop_file = autostart_dir.join("nextdm.desktop");
 
-    if !enabled {
-        if desktop_file.exists() {
-            let _ = std::fs::remove_file(desktop_file);
+        if !enabled {
+            if desktop_file.exists() {
+                let _ = std::fs::remove_file(desktop_file);
+            }
+            return Ok(());
         }
-        return Ok(());
+
+        std::fs::create_dir_all(&autostart_dir).map_err(|e| e.to_string())?;
+
+        let exec_cmd = if std::path::Path::new("/usr/bin/nextdm-desktop").exists() {
+            "/usr/bin/nextdm-desktop --background".to_string()
+        } else if let Ok(current) = std::env::current_exe() {
+            format!("{} --background", current.to_string_lossy())
+        } else {
+            "nextdm-desktop --background".to_string()
+        };
+
+        let content = format!(
+            "[Desktop Entry]\n\
+             Type=Application\n\
+             Name=NextDM\n\
+             Comment=NextDM Download Manager\n\
+             Exec={exec_cmd}\n\
+             Icon=nextdm\n\
+             Terminal=false\n\
+             Categories=Network;FileTransfer;\n\
+             StartupNotify=false\n\
+             X-GNOME-Autostart-enabled=true\n"
+        );
+
+        std::fs::write(&desktop_file, content).map_err(|e| e.to_string())?;
+        Ok(())
     }
+    #[cfg(windows)]
+    {
+        if let Some(appdata) = std::env::var_os("APPDATA") {
+            let startup_dir = std::path::PathBuf::from(appdata)
+                .join(r"Microsoft\Windows\Start Menu\Programs\Startup");
+            let startup_bat = startup_dir.join("NextDM.bat");
 
-    std::fs::create_dir_all(&autostart_dir).map_err(|e| e.to_string())?;
+            if !enabled {
+                if startup_bat.exists() {
+                    let _ = std::fs::remove_file(startup_bat);
+                }
+                return Ok(());
+            }
 
-    let exec_cmd = if std::path::Path::new("/usr/bin/nextdm-desktop").exists() {
-        "/usr/bin/nextdm-desktop --background".to_string()
-    } else if let Ok(current) = std::env::current_exe() {
-        format!("{} --background", current.to_string_lossy())
-    } else {
-        "nextdm-desktop --background".to_string()
-    };
-
-    let content = format!(
-        "[Desktop Entry]\n\
-         Type=Application\n\
-         Name=NextDM\n\
-         Comment=NextDM Download Manager\n\
-         Exec={exec_cmd}\n\
-         Icon=nextdm\n\
-         Terminal=false\n\
-         Categories=Network;FileTransfer;\n\
-         StartupNotify=false\n\
-         X-GNOME-Autostart-enabled=true\n"
-    );
-
-    std::fs::write(&desktop_file, content).map_err(|e| e.to_string())?;
-    Ok(())
+            let _ = std::fs::create_dir_all(&startup_dir);
+            let current = std::env::current_exe().map_err(|e| e.to_string())?;
+            let content = format!("@start \"\" \"{}\" --background\r\n", current.to_string_lossy());
+            std::fs::write(&startup_bat, content).map_err(|e| e.to_string())?;
+        }
+        Ok(())
+    }
 }
 
-/// If another NextDM instance already owns the IPC socket, ask it to show its
+/// If another NextDM instance already owns the IPC socket/port, ask it to show its
 /// window and report success so this process can exit.
 fn forward_to_running_instance() -> bool {
-    let path = nextdm_browser_host::ipc::socket_path();
-    let Ok(mut stream) = std::os::unix::net::UnixStream::connect(path) else {
-        return false;
-    };
-    let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
-
-    let Ok(payload) = serde_json::to_vec(&HostRequest::ShowWindow) else {
-        return false;
-    };
-    if stream.write_all(&payload).is_err() || stream.write_all(b"\n").is_err() {
-        return false;
-    }
-
-    let mut line = String::new();
-    let _ = BufReader::new(stream).read_line(&mut line);
-    true
+    nextdm_browser_host::ipc::request(&HostRequest::ShowWindow, Duration::from_secs(2)).is_ok()
 }
 
 fn build_tray(app: &tauri::App) -> tauri::Result<()> {
@@ -431,6 +452,7 @@ fn quit_app(app: &tauri::AppHandle) {
         state.quitting.store(true, Ordering::SeqCst);
         tauri::async_runtime::block_on(state.engine.shutdown());
     }
+    #[cfg(unix)]
     let _ = std::fs::remove_file(nextdm_browser_host::ipc::socket_path());
     app.exit(0);
 }
@@ -549,6 +571,7 @@ pub fn run() {
                 if let Some(state) = app.try_state::<AppState>() {
                     tauri::async_runtime::block_on(state.engine.shutdown());
                 }
+                #[cfg(unix)]
                 let _ = std::fs::remove_file(nextdm_browser_host::ipc::socket_path());
             }
         })

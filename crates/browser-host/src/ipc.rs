@@ -1,19 +1,23 @@
 //! Local IPC between the native messaging host and the running NextDM app.
 //!
-//! The transport is a Unix domain socket carrying newline-delimited JSON. One
-//! connection normally carries exactly one request/response pair.
+//! On Unix, the transport is a domain socket carrying newline-delimited JSON.
+//! On Windows, the transport is a loopback TCP socket (127.0.0.1:42891).
 
-use std::io::{self, BufRead, BufReader, Write};
-use std::os::unix::net::UnixStream;
+use std::io::{self, BufRead, BufReader};
 use std::path::PathBuf;
 use std::time::Duration;
 
+#[cfg(unix)]
+use std::os::unix::net::UnixStream;
+
+#[cfg(windows)]
+use std::net::TcpStream;
+
 use crate::protocol::{HostRequest, HostResponse};
 
-/// Path of the NextDM local socket.
-///
-/// `XDG_RUNTIME_DIR` is preferred so the socket disappears with the login
-/// session. When it is unavailable we fall back to the cache directory.
+pub const WINDOWS_IPC_PORT: u16 = 42891;
+
+/// Path of the NextDM local socket (Unix).
 pub fn socket_path() -> PathBuf {
     if let Some(runtime) = std::env::var_os("XDG_RUNTIME_DIR") {
         let runtime = PathBuf::from(runtime);
@@ -32,19 +36,46 @@ pub fn socket_path() -> PathBuf {
 
 /// Send one request to the running app and wait for its response.
 pub fn request(request: &HostRequest, timeout: Duration) -> io::Result<HostResponse> {
-    request_at(&socket_path(), request, timeout)
+    #[cfg(unix)]
+    {
+        request_at(&socket_path(), request, timeout)
+    }
+    #[cfg(windows)]
+    {
+        request_tcp(WINDOWS_IPC_PORT, request, timeout)
+    }
 }
 
-/// Send one request to a specific socket path. Used by tests and tools.
+/// Send one request to a specific socket path (Unix).
+#[cfg(unix)]
 pub fn request_at(
     path: &std::path::Path,
     request: &HostRequest,
     timeout: Duration,
 ) -> io::Result<HostResponse> {
-    let mut stream = UnixStream::connect(path)?;
+    let stream = UnixStream::connect(path)?;
     stream.set_write_timeout(Some(timeout))?;
     stream.set_read_timeout(Some(timeout))?;
+    round_trip_io(stream, request)
+}
 
+/// Send one request to a local TCP port (Windows).
+#[cfg(windows)]
+pub fn request_tcp(
+    port: u16,
+    request: &HostRequest,
+    timeout: Duration,
+) -> io::Result<HostResponse> {
+    let mut stream = TcpStream::connect(("127.0.0.1", port))?;
+    stream.set_write_timeout(Some(timeout))?;
+    stream.set_read_timeout(Some(timeout))?;
+    round_trip_io(stream, request)
+}
+
+fn round_trip_io<S: io::Read + io::Write>(
+    mut stream: S,
+    request: &HostRequest,
+) -> io::Result<HostResponse> {
     let payload = serde_json::to_vec(request)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     stream.write_all(&payload)?;
@@ -73,10 +104,12 @@ pub fn is_running() -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::os::unix::net::UnixListener;
+    use std::io::Write;
 
+    #[cfg(unix)]
     #[test]
     fn round_trips_one_request() {
+        use std::os::unix::net::UnixListener;
         let directory =
             std::env::temp_dir().join(format!("nextdm-ipc-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&directory);

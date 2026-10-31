@@ -126,9 +126,16 @@ fn find_desktop_binary() -> PathBuf {
 
     if let Ok(current) = std::env::current_exe() {
         if let Some(parent) = current.parent() {
-            let sibling = parent.join("nextdm-desktop");
-            if sibling.is_file() {
-                return sibling;
+            let names = if cfg!(windows) {
+                &["nextdm-desktop.exe", "NextDM.exe", "nextdm.exe"][..]
+            } else {
+                &["nextdm-desktop", "NextDM"][..]
+            };
+            for name in names {
+                let sibling = parent.join(name);
+                if sibling.is_file() {
+                    return sibling;
+                }
             }
         }
     }

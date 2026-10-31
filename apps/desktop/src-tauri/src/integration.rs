@@ -20,18 +20,26 @@ static FIREFOX_EXTENSION: Dir<'_> =
 /// Install manifests and extension files. Returns human-readable instructions.
 pub fn install(chromium: bool, firefox: bool) -> Result<Vec<String>, String> {
     let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
         .map(PathBuf::from)
-        .ok_or_else(|| "HOME is not set".to_string())?;
+        .ok_or_else(|| "User home directory is not set".to_string())?;
 
     let host_path = if let Some(host_bin) = find_host_binary(&home) {
         host_bin
     } else {
-        let launcher = app_launcher()?;
-        let host_dir = home.join(".local/share/nextdm/browser-host");
-        fs::create_dir_all(&host_dir).map_err(stringify)?;
-        let wrapper = host_dir.join("nextdm-native-host");
-        write_wrapper(&wrapper, &launcher)?;
-        wrapper
+        #[cfg(unix)]
+        {
+            let launcher = app_launcher()?;
+            let host_dir = home.join(".local/share/nextdm/browser-host");
+            fs::create_dir_all(&host_dir).map_err(stringify)?;
+            let wrapper = host_dir.join("nextdm-native-host");
+            write_wrapper(&wrapper, &launcher)?;
+            wrapper
+        }
+        #[cfg(windows)]
+        {
+            std::env::current_exe().map_err(stringify)?
+        }
     };
 
     let mut messages = Vec::new();
@@ -76,7 +84,15 @@ pub fn install(chromium: bool, firefox: bool) -> Result<Vec<String>, String> {
             allowed_extensions: vec![FIREFOX_EXTENSION_ID.to_string()],
         };
         let json = serde_json::to_string_pretty(&manifest).map_err(stringify)?;
+
+        #[cfg(unix)]
         let dir = home.join(".mozilla/native-messaging-hosts");
+        #[cfg(windows)]
+        let dir = std::env::var_os("APPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home.join(r"AppData\Roaming"))
+            .join(r"Mozilla\NativeMessagingHosts");
+
         write_manifest(&dir, &json)?;
 
         messages.push("Firefox native host installed.".to_string());
@@ -96,6 +112,21 @@ pub fn install(chromium: bool, firefox: bool) -> Result<Vec<String>, String> {
 }
 
 fn find_host_binary(home: &Path) -> Option<PathBuf> {
+    if let Ok(current) = std::env::current_exe() {
+        if let Some(parent) = current.parent() {
+            let names = if cfg!(windows) {
+                &["nextdm-host.exe", "NextDM-Host.exe"][..]
+            } else {
+                &["nextdm-host"][..]
+            };
+            for name in names {
+                let sibling = parent.join(name);
+                if sibling.is_file() {
+                    return Some(sibling);
+                }
+            }
+        }
+    }
     let usr_bin = PathBuf::from("/usr/bin/nextdm-host");
     if usr_bin.is_file() {
         return Some(usr_bin);
@@ -103,14 +134,6 @@ fn find_host_binary(home: &Path) -> Option<PathBuf> {
     let local_bin = home.join(".local/bin/nextdm-host");
     if local_bin.is_file() {
         return Some(local_bin);
-    }
-    if let Ok(current) = std::env::current_exe() {
-        if let Some(parent) = current.parent() {
-            let sibling = parent.join("nextdm-host");
-            if sibling.is_file() {
-                return Some(sibling);
-            }
-        }
     }
     None
 }
@@ -145,26 +168,39 @@ fn write_wrapper(path: &Path, executable: &Path) -> Result<(), String> {
 }
 
 fn chromium_host_dirs(home: &Path) -> Vec<PathBuf> {
-    let config = home.join(".config");
-    let candidates = [
-        config.join("chromium/NativeMessagingHosts"),
-        config.join("google-chrome/NativeMessagingHosts"),
-        config.join("BraveSoftware/Brave-Browser/NativeMessagingHosts"),
-        config.join("microsoft-edge/NativeMessagingHosts"),
-        config.join("vivaldi/NativeMessagingHosts"),
-    ];
+    #[cfg(unix)]
+    {
+        let config = home.join(".config");
+        let candidates = [
+            config.join("chromium/NativeMessagingHosts"),
+            config.join("google-chrome/NativeMessagingHosts"),
+            config.join("BraveSoftware/Brave-Browser/NativeMessagingHosts"),
+            config.join("microsoft-edge/NativeMessagingHosts"),
+            config.join("vivaldi/NativeMessagingHosts"),
+        ];
 
-    candidates
-        .into_iter()
-        .filter(|dir| {
-            // Chromium and Chrome get the host eagerly; the others only when the
-            // corresponding browser profile exists on this machine.
-            let browser_root = dir.parent().and_then(Path::parent);
-            let eager = dir.to_string_lossy().contains("/chromium/")
-                || dir.to_string_lossy().contains("/google-chrome/");
-            eager || browser_root.map(Path::exists).unwrap_or(false)
-        })
-        .collect()
+        candidates
+            .into_iter()
+            .filter(|dir| {
+                let browser_root = dir.parent().and_then(Path::parent);
+                let eager = dir.to_string_lossy().contains("/chromium/")
+                    || dir.to_string_lossy().contains("/google-chrome/");
+                eager || browser_root.map(Path::exists).unwrap_or(false)
+            })
+            .collect()
+    }
+    #[cfg(windows)]
+    {
+        let local_app_data = std::env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home.join(r"AppData\Local"));
+        vec![
+            local_app_data.join(r"Google\Chrome\User Data\NativeMessagingHosts"),
+            local_app_data.join(r"Microsoft\Edge\User Data\NativeMessagingHosts"),
+            local_app_data.join(r"BraveSoftware\Brave-Browser\User Data\NativeMessagingHosts"),
+            local_app_data.join(r"Vivaldi\User Data\NativeMessagingHosts"),
+        ]
+    }
 }
 
 fn write_manifest(directory: &Path, json: &str) -> Result<(), String> {
