@@ -18,8 +18,8 @@ static CHROMIUM_EXTENSION: Dir<'_> =
 static FIREFOX_EXTENSION: Dir<'_> =
     include_dir!("$CARGO_MANIFEST_DIR/../../../extensions/firefox");
 
-static CHROME_ZIP: &[u8] = include_bytes!("../../../../extensions/dist/nextdm-chrome-webstore.zip");
-static FIREFOX_ZIP: &[u8] = include_bytes!("../../../../extensions/dist/nextdm-firefox-amo.zip");
+static CHROME_ZIP: &[u8] = include_bytes!("../extensions/nextdm-chromium.zip");
+static FIREFOX_ZIP: &[u8] = include_bytes!("../extensions/nextdm-firefox.xpi");
 
 /// Returns the directory where browser extensions and store packages are saved.
 pub fn get_extension_dir() -> Result<PathBuf, String> {
