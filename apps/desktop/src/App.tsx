@@ -661,7 +661,7 @@ function App() {
           },
         },
         {
-          label: "In-Browser Video Grabber: Compact Icon (like IDM)",
+          label: "In-Browser Video Grabber: Compact Icon",
           checked: settings.videoBadgeStyle === "compact",
           onClick: () => {
             setSettings((cur) => ({ ...cur, videoBadgeStyle: "compact" }));

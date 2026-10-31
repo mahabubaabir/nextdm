@@ -44,7 +44,7 @@
   transform: translateY(-1px) scale(1.02) !important;
 }
 
-/* 2. Icon-Only Mode (Compact like IDM) */
+/* 2. Icon-Only Mode (Compact Mini Grabber) */
 .nextdm-video-badge.nextdm-badge-icon-only {
   width: 32px !important;
   height: 32px !important;

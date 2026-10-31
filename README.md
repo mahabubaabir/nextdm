@@ -36,7 +36,7 @@ Choose the installer for your computer:
 ## 🌟 Highlights & Key Features
 
 - ⚡ **Multi-Connection Segmented Downloads**: Accelerate transfers with up to 32 parallel threads per file.
-- 🎬 **In-Browser Video Grabber**: Floating download badge above web video players (YouTube, Facebook, Twitter, TikTok, and HTML5 players). Choose between a **Full Panel** or **Compact Icon** (like IDM's mini badge) right from the app.
+- 🎬 **In-Browser Video Grabber**: Floating download badge above web video players (YouTube, Facebook, Twitter, TikTok, and HTML5 players). Choose between a **Full Panel** or **Compact Mini Grabber** right from the app.
 - 📋 **Pre-Download File Inspector ("Download File Info")**: Detects file sizes, file types, resume support, and suggests download folders before you start.
 - 🎨 **Adaptive Theme Engine**:
   - **Liquid Glass**: Trending frosted translucent glassmorphism with dynamic gradients.

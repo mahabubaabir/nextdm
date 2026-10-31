@@ -51,7 +51,7 @@
         </svg>
       </div>
       <span class="nextdm-badge-text">Download Video</span>
-      <button type="button" class="nextdm-badge-toggle" title="Switch between Full panel and Icon-only (like IDM)">
+      <button type="button" class="nextdm-badge-toggle" title="Switch between Full panel and Icon-only mini grabber">
         <svg viewBox="0 0 16 16" width="10" height="10">
           <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>

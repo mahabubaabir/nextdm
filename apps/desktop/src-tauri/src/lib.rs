@@ -130,11 +130,22 @@ fn set_default_dir(state: State<'_, AppState>, path: String) -> Result<(), Strin
 
 #[tauri::command]
 fn open_path(path: String) -> Result<(), String> {
-    std::process::Command::new("xdg-open")
-        .arg(path)
-        .spawn()
-        .map(|_| ())
-        .map_err(error_string)
+    #[cfg(unix)]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(path)
+            .spawn()
+            .map(|_| ())
+            .map_err(error_string)
+    }
+    #[cfg(windows)]
+    {
+        std::process::Command::new("explorer")
+            .arg(&path)
+            .spawn()
+            .map(|_| ())
+            .map_err(error_string)
+    }
 }
 
 #[tauri::command]
@@ -285,8 +296,24 @@ fn engine_version() -> &'static str {
 }
 
 #[tauri::command]
-fn install_browser_integration(chromium: bool, firefox: bool) -> Result<Vec<String>, String> {
-    integration::install(chromium, firefox)
+fn install_browser_integration(
+    chromium: bool,
+    firefox: bool,
+    custom_chrome_id: Option<String>,
+) -> Result<Vec<String>, String> {
+    integration::install(chromium, firefox, custom_chrome_id)
+}
+
+#[tauri::command]
+fn check_browser_integration() -> bool {
+    integration::is_host_installed()
+}
+
+#[tauri::command]
+fn open_extensions_dir() -> Result<(), String> {
+    let dir = integration::get_extension_dir()?;
+    let _ = std::fs::create_dir_all(&dir);
+    open_path(dir.to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -600,6 +627,8 @@ pub fn run() {
             get_segments,
             engine_version,
             install_browser_integration,
+            check_browser_integration,
+            open_extensions_dir,
             quit_app_cmd,
             get_autostart,
             set_autostart,

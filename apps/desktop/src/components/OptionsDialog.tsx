@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { Modal } from "./Modal";
 import { Icon, type IconName } from "./Icons";
 import { cx } from "../lib";
@@ -38,6 +39,7 @@ export function OptionsDialog({
   const [checkingMedia, setCheckingMedia] = useState(false);
   const [browserBusy, setBrowserBusy] = useState(false);
   const [browserResult, setBrowserResult] = useState("");
+  const [hostInstalled, setHostInstalled] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -46,10 +48,21 @@ export function OptionsDialog({
     setTab("general");
     setBrowserResult("");
     setYtDlp(null);
+    invoke<boolean>("check_browser_integration")
+      .then(setHostInstalled)
+      .catch(() => setHostInstalled(false));
     // Intentionally reset only when the dialog opens; theme previews update
     // the parent settings object while the user is editing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  useEffect(() => {
+    if (tab === "browser") {
+      invoke<boolean>("check_browser_integration")
+        .then(setHostInstalled)
+        .catch(() => setHostInstalled(false));
+    }
+  }, [tab]);
 
   if (!open) return null;
 
@@ -75,12 +88,30 @@ export function OptionsDialog({
       const messages = await invoke<string[]>("install_browser_integration", {
         chromium: true,
         firefox: true,
+        customChromeId: null,
       });
-      setBrowserResult(messages.join("\n"));
+      setBrowserResult(messages.join(" "));
+      setHostInstalled(true);
     } catch (caught) {
       setBrowserResult(String(caught));
     } finally {
       setBrowserBusy(false);
+    }
+  };
+
+  const openExtFolder = async () => {
+    try {
+      await invoke("open_extensions_dir");
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const openExternalUrl = async (url: string) => {
+    try {
+      await openUrl(url);
+    } catch {
+      window.open(url, "_blank");
     }
   };
 
@@ -332,20 +363,126 @@ export function OptionsDialog({
 
           {tab === "browser" ? (
             <section className="option-section">
-              <h3>Browser integration</h3>
+              <h3>Browser Integration</h3>
               <p className="option-note">
-                Install the native messaging manifest so Chromium and Firefox can hand downloads to
-                NextDM. After installing, restart the browser and enable the NextDM extension.
+                Connect NextDM directly to your web browser to capture downloads and grab online videos with 1 click.
               </p>
-              <button className="primary-button" onClick={installBrowsers} disabled={browserBusy}>
-                {browserBusy ? <span className="spinner" /> : <Icon name="globe" size={15} />}
-                {browserBusy ? "Installing…" : "Install for Chromium and Firefox"}
-              </button>
-              {browserResult ? <pre className="browser-result">{browserResult}</pre> : null}
 
-              <h3>Video download panel (in browsers)</h3>
+              {/* Host Status Card */}
+              <div className="integration-card">
+                <div className="integration-card-header">
+                  <div className="integration-card-title">
+                    <Icon name="globe" size={16} />
+                    <span>Native Messaging Host</span>
+                  </div>
+                  {hostInstalled ? (
+                    <span className="status-pill status-pill-ok">
+                      <Icon name="check" size={12} /> Registered & Active
+                    </span>
+                  ) : (
+                    <span className="status-pill status-pill-warn">
+                      <Icon name="warning" size={12} /> Not Registered
+                    </span>
+                  )}
+                </div>
+                <p className="integration-card-desc">
+                  Registers the native communication bridge on this system for Chrome, Brave, Edge, Vivaldi, Chromium, and Firefox.
+                </p>
+                <div className="integration-card-actions">
+                  <button
+                    className="primary-button compact"
+                    onClick={installBrowsers}
+                    disabled={browserBusy}
+                  >
+                    {browserBusy ? <span className="spinner" /> : <Icon name="refresh" size={13} />}
+                    {hostInstalled ? "Re-register Native Host" : "Register Native Messaging Host"}
+                  </button>
+                  <button
+                    className="secondary-button compact"
+                    onClick={openExtFolder}
+                    title="Open the local extensions and store bundles folder"
+                  >
+                    <Icon name="folder" size={13} />
+                    Open Extensions Folder
+                  </button>
+                </div>
+                {browserResult ? (
+                  <div className="integration-alert">
+                    <Icon name="check" size={14} />
+                    <span>{browserResult}</span>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Web Store Distribution */}
+              <div className="integration-card">
+                <div className="integration-card-header">
+                  <div className="integration-card-title">
+                    <Icon name="external" size={16} />
+                    <span>Web Store Installation (Universal for Any PC)</span>
+                  </div>
+                  <span className="status-pill status-pill-info">Recommended</span>
+                </div>
+                <p className="integration-card-desc">
+                  Upload the extension to Chrome Web Store and Firefox Add-ons (AMO) for 1-click installation on any computer without needing developer mode or unpacking files. Ready-to-upload store packages (.zip) are bundled automatically.
+                </p>
+                <div className="store-links-grid">
+                  <div className="store-link-item">
+                    <div className="store-item-info">
+                      <strong>Chrome / Chromium Web Store</strong>
+                      <span className="muted">For Google Chrome, Brave, Edge & Vivaldi</span>
+                    </div>
+                    <div className="inline-field">
+                      <button
+                        className="secondary-button compact"
+                        onClick={() => openExternalUrl("https://chrome.google.com/webstore/devconsole")}
+                      >
+                        <Icon name="external" size={13} /> Open Developer Dashboard
+                      </button>
+                    </div>
+                  </div>
+                  <div className="store-link-item">
+                    <div className="store-item-info">
+                      <strong>Mozilla Firefox Add-ons (AMO)</strong>
+                      <span className="muted">For Firefox, Floorp, LibreWolf & Waterfox</span>
+                    </div>
+                    <div className="inline-field">
+                      <button
+                        className="secondary-button compact"
+                        onClick={() => openExternalUrl("https://addons.mozilla.org/developers/addon/submit/upload-listed")}
+                      >
+                        <Icon name="external" size={13} /> Open Add-on Developer Hub
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Developer / Offline Mode */}
+              <div className="integration-card">
+                <div className="integration-card-header">
+                  <div className="integration-card-title">
+                    <Icon name="options" size={16} />
+                    <span>Offline / Local Developer Mode</span>
+                  </div>
+                </div>
+                <p className="integration-card-desc">
+                  To test locally before publishing to web stores:
+                </p>
+                <ul className="integration-steps">
+                  <li>
+                    <strong>Chromium / Chrome / Brave / Edge:</strong> Open <code>chrome://extensions</code>, enable <em>Developer mode</em>, click <em>Load unpacked</em>, and select the <code>chromium</code> folder inside the extensions directory.
+                  </li>
+                  <li>
+                    <strong>Firefox:</strong> Open <code>about:debugging#/runtime/this-firefox</code>, click <em>Load Temporary Add-on</em>, and select <code>manifest.json</code> inside the <code>firefox</code> folder.
+                  </li>
+                </ul>
+              </div>
+
+              {/* Video Grabber Settings */}
+              <h3>Video Download Grabber</h3>
               <p className="option-note">
-                Choose how the floating grabber badge appears on YouTube, Facebook and video pages:
+                Configure the floating download button displayed on YouTube, Facebook, and video websites:
               </p>
               <label className="option-row">
                 <span>Floating badge style</span>
@@ -355,8 +492,8 @@ export function OptionsDialog({
                     update("videoBadgeStyle", event.target.value as "compact" | "full")
                   }
                 >
-                  <option value="compact">Compact Icon Only (like IDM mini grabber)</option>
-                  <option value="full">Download Video (Full button)</option>
+                  <option value="compact">Compact Icon Only (Mini Grabber)</option>
+                  <option value="full">Download Video (Full Button)</option>
                 </select>
               </label>
               <p className="option-note">

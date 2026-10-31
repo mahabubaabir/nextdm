@@ -1,8 +1,9 @@
 //! Browser integration installer.
 //!
 //! Writes the native-messaging manifests and a launcher script, then unpacks
-//! the bundled extensions into the user's data directory. Extensions are loaded
-//! as unpacked/temporary add-ons, which does not require an app store account.
+//! the bundled extensions into the user's data directory. Extensions can be loaded
+//! directly from the official Web Stores (Chrome Web Store / Firefox Add-ons) or
+//! unpacked in developer mode.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -17,12 +18,95 @@ static CHROMIUM_EXTENSION: Dir<'_> =
 static FIREFOX_EXTENSION: Dir<'_> =
     include_dir!("$CARGO_MANIFEST_DIR/../../../extensions/firefox");
 
-/// Install manifests and extension files. Returns human-readable instructions.
-pub fn install(chromium: bool, firefox: bool) -> Result<Vec<String>, String> {
+static CHROME_ZIP: &[u8] = include_bytes!("../../../../extensions/dist/nextdm-chrome-webstore.zip");
+static FIREFOX_ZIP: &[u8] = include_bytes!("../../../../extensions/dist/nextdm-firefox-amo.zip");
+
+/// Returns the directory where browser extensions and store packages are saved.
+pub fn get_extension_dir() -> Result<PathBuf, String> {
     let home = std::env::var_os("HOME")
         .or_else(|| std::env::var_os("USERPROFILE"))
         .map(PathBuf::from)
         .ok_or_else(|| "User home directory is not set".to_string())?;
+
+    #[cfg(unix)]
+    {
+        Ok(home.join(".local/share/nextdm/browser-extension"))
+    }
+    #[cfg(windows)]
+    {
+        let appdata = std::env::var_os("APPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home.join(r"AppData\Roaming"));
+        Ok(appdata.join(r"nextdm\browser-extension"))
+    }
+}
+
+/// Checks whether the native messaging host manifest is currently installed.
+pub fn is_host_installed() -> bool {
+    let home = match std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+    {
+        Some(h) => h,
+        None => return false,
+    };
+
+    #[cfg(unix)]
+    {
+        for dir in chromium_host_dirs(&home) {
+            if dir.join(format!("{HOST_NAME}.json")).is_file() {
+                return true;
+            }
+        }
+        if home
+            .join(".mozilla/native-messaging-hosts")
+            .join(format!("{HOST_NAME}.json"))
+            .is_file()
+        {
+            return true;
+        }
+    }
+    #[cfg(windows)]
+    {
+        let appdata = std::env::var_os("APPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home.join(r"AppData\Roaming"));
+        if appdata
+            .join(r"Mozilla\NativeMessagingHosts")
+            .join(format!("{HOST_NAME}.json"))
+            .is_file()
+        {
+            return true;
+        }
+        let local_app_data = std::env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home.join(r"AppData\Local"));
+        if local_app_data
+            .join(r"Google\Chrome\User Data\NativeMessagingHosts")
+            .join(format!("{HOST_NAME}.json"))
+            .is_file()
+        {
+            return true;
+        }
+    }
+    false
+}
+
+/// Install manifests and extension files. Returns human-readable status messages.
+pub fn install(
+    chromium: bool,
+    firefox: bool,
+    custom_chrome_id: Option<String>,
+) -> Result<Vec<String>, String> {
+    let home = std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+        .ok_or_else(|| "User home directory is not set".to_string())?;
+
+    let base_ext_dir = get_extension_dir()?;
+    let _ = fs::create_dir_all(&base_ext_dir);
+    let _ = fs::write(base_ext_dir.join("nextdm-chrome-webstore.zip"), CHROME_ZIP);
+    let _ = fs::write(base_ext_dir.join("nextdm-firefox-amo.zip"), FIREFOX_ZIP);
 
     let host_path = if let Some(host_bin) = find_host_binary(&home) {
         host_bin
@@ -45,15 +129,23 @@ pub fn install(chromium: bool, firefox: bool) -> Result<Vec<String>, String> {
     let mut messages = Vec::new();
 
     if chromium {
-        let extension_dir = home.join(".local/share/nextdm/browser-extension/chromium");
+        let extension_dir = base_ext_dir.join("chromium");
         extract(&CHROMIUM_EXTENSION, &extension_dir)?;
+
+        let mut allowed_origins = vec![format!("chrome-extension://{CHROMIUM_EXTENSION_ID}/")];
+        if let Some(custom) = custom_chrome_id.as_deref() {
+            let trimmed = custom.trim();
+            if !trimmed.is_empty() && trimmed != CHROMIUM_EXTENSION_ID {
+                allowed_origins.push(format!("chrome-extension://{trimmed}/"));
+            }
+        }
 
         let manifest = ChromiumManifest {
             name: HOST_NAME.to_string(),
             description: "NextDM download handoff host".to_string(),
             path: host_path.to_string_lossy().to_string(),
             kind: "stdio".to_string(),
-            allowed_origins: vec![format!("chrome-extension://{CHROMIUM_EXTENSION_ID}/")],
+            allowed_origins,
         };
         let json = serde_json::to_string_pretty(&manifest).map_err(stringify)?;
 
@@ -63,17 +155,29 @@ pub fn install(chromium: bool, firefox: bool) -> Result<Vec<String>, String> {
                 installed += 1;
             }
         }
+
+        #[cfg(windows)]
+        {
+            let manifest_path = base_ext_dir.join(format!("{HOST_NAME}.json"));
+            let _ = fs::write(&manifest_path, &json);
+            let keys = [
+                r"HKCU\Software\Google\Chrome\NativeMessagingHosts\com.nextdm.host",
+                r"HKCU\Software\Microsoft\Edge\NativeMessagingHosts\com.nextdm.host",
+                r"HKCU\Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.nextdm.host",
+                r"HKCU\Software\Vivaldi\NativeMessagingHosts\com.nextdm.host",
+            ];
+            for key in keys {
+                register_windows_registry(key, &manifest_path);
+            }
+        }
+
         messages.push(format!(
-            "Chromium native host installed for {installed} browser(s)."
-        ));
-        messages.push(format!(
-            "Chromium: open chrome://extensions, enable Developer mode, click “Load unpacked” and select {}",
-            extension_dir.display()
+            "Registered native host for {installed} Chromium browser(s) (Chrome, Brave, Edge, Vivaldi)."
         ));
     }
 
     if firefox {
-        let extension_dir = home.join(".local/share/nextdm/browser-extension/firefox");
+        let extension_dir = base_ext_dir.join("firefox");
         extract(&FIREFOX_EXTENSION, &extension_dir)?;
 
         let manifest = FirefoxManifest {
@@ -95,20 +199,33 @@ pub fn install(chromium: bool, firefox: bool) -> Result<Vec<String>, String> {
 
         write_manifest(&dir, &json)?;
 
-        messages.push("Firefox native host installed.".to_string());
-        messages.push(format!(
-            "Firefox: open about:debugging#/runtime/this-firefox, click “Load Temporary Add-on” and select {}/manifest.json",
-            extension_dir.display()
-        ));
+        #[cfg(windows)]
+        {
+            let manifest_path = dir.join(format!("{HOST_NAME}.json"));
+            register_windows_registry(
+                r"HKCU\Software\Mozilla\NativeMessagingHosts\com.nextdm.host",
+                &manifest_path,
+            );
+        }
+
+        messages.push("Registered native host for Mozilla Firefox.".to_string());
     }
 
     if messages.is_empty() {
-        messages.push("Nothing was selected.".to_string());
+        messages.push("No browsers selected.".to_string());
     } else {
-        messages.push("Restart the browser after loading the extension.".to_string());
+        messages.push("Native messaging is active and ready for downloads.".to_string());
     }
 
     Ok(messages)
+}
+
+#[cfg(windows)]
+fn register_windows_registry(key: &str, manifest_path: &Path) {
+    let path_str = manifest_path.to_string_lossy();
+    let _ = std::process::Command::new("reg")
+        .args(["add", key, "/ve", "/t", "REG_SZ", "/d", &path_str, "/f"])
+        .output();
 }
 
 fn find_host_binary(home: &Path) -> Option<PathBuf> {

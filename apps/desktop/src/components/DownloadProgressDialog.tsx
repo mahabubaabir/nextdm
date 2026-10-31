@@ -231,7 +231,7 @@ export function DownloadProgressDialog({
           </div>
         </div>
 
-        {/* Segmented Chunk Visualizer (IDM Multi-threaded Visualizer) */}
+        {/* Segmented Chunk Visualizer (NextDM Multi-threaded Visualizer) */}
         <div>
           <div
             style={{
