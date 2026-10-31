@@ -80,7 +80,7 @@ export function AboutView({ engineVersion }: { engineVersion: string }) {
           >
             <span>Copyright (C) </span>
             <strong className="about-creator-glow">Marbor Tech by Mahabub H. Aabir</strong>
-            <span className="about-creator-email"> &lt;mahbub.aabir@gmail.com&gt;</span>
+            <span className="about-creator-email"> &lt;mahabub.aabir@yahoo.com&gt;</span>
             {sparkles.map((sp) => (
               <span
                 key={sp.id}
