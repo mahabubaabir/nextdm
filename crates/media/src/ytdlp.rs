@@ -64,6 +64,8 @@ struct RawFormat {
     tbr: Option<f64>,
     #[serde(default)]
     format_note: Option<String>,
+    #[serde(default)]
+    resolution: Option<String>,
 }
 
 /// Ask yt-dlp for metadata and a flat list of downloadable formats.
@@ -100,35 +102,131 @@ pub async fn probe(url: &str) -> Result<MediaInfo> {
         if matches!(ext.as_str(), "mhtml" | "none") {
             continue;
         }
-        let has_video = format.vcodec.as_deref().map(|codec| codec != "none").unwrap_or(false);
-        let has_audio = format.acodec.as_deref().map(|codec| codec != "none").unwrap_or(false);
+
+        let ext_lower = ext.to_lowercase();
+        let is_video_container = matches!(
+            ext_lower.as_str(),
+            "mp4" | "mkv" | "webm" | "mov" | "avi" | "flv" | "3gp"
+        );
+        let is_audio_container = matches!(
+            ext_lower.as_str(),
+            "m4a" | "mp3" | "opus" | "ogg" | "aac" | "wav" | "flac"
+        );
+
+        let vcodec_str = format.vcodec.as_deref().unwrap_or("");
+        let acodec_str = format.acodec.as_deref().unwrap_or("");
+
+        let has_video = if vcodec_str == "none" {
+            false
+        } else if !vcodec_str.is_empty() {
+            true
+        } else {
+            is_video_container || (!is_audio_container && format.height.unwrap_or(0) > 0)
+        };
+
+        let has_audio = if acodec_str == "none" {
+            false
+        } else if !acodec_str.is_empty() {
+            true
+        } else {
+            is_audio_container || is_video_container
+        };
+
         if !has_video && !has_audio {
             continue;
         }
 
-        let height = format.height.unwrap_or(0);
+        let mut height = format.height.unwrap_or(0);
+        if height == 0 {
+            if format.format_id == "hd" {
+                height = 720;
+            } else if format.format_id == "sd" {
+                height = 360;
+            } else if let Some(res) = &format.resolution {
+                if let Some((_, h_str)) = res.split_once('x') {
+                    if let Ok(h) = h_str.trim().parse::<u32>() {
+                        height = h;
+                    }
+                }
+            } else if let Some(note) = &format.format_note {
+                if let Some(h_str) = note.strip_suffix('p') {
+                    if let Ok(h) = h_str.parse::<u32>() {
+                        height = h;
+                    }
+                }
+            }
+        }
+
+        let vcodec_lower = vcodec_str.to_lowercase();
+        let video_codec_name = if vcodec_lower.starts_with("avc1") || vcodec_lower.contains("h264") {
+            "H.264"
+        } else if vcodec_lower.starts_with("av01") || vcodec_lower.contains("av1") {
+            "AV1"
+        } else if vcodec_lower.starts_with("vp09") || vcodec_lower.contains("vp9") {
+            "VP9"
+        } else if vcodec_lower.starts_with("hev1")
+            || vcodec_lower.starts_with("hvc1")
+            || vcodec_lower.contains("h265")
+            || vcodec_lower.contains("hevc")
+        {
+            "HEVC"
+        } else if format.format_id == "hd" || format.format_id == "sd" || (has_video && ext_lower == "mp4") {
+            "H.264"
+        } else {
+            ""
+        };
+
+        let acodec_lower = acodec_str.to_lowercase();
+        let audio_codec_name = if acodec_lower.starts_with("mp4a") || acodec_lower.contains("aac") {
+            "AAC"
+        } else if acodec_lower.contains("opus") {
+            "Opus"
+        } else if acodec_lower.contains("mp3") {
+            "MP3"
+        } else if acodec_lower.contains("vorbis") {
+            "Vorbis"
+        } else if ext_lower == "m4a" {
+            "AAC"
+        } else {
+            ""
+        };
+
         let kind = if has_video { "video" } else { "audio" };
-        let label = match (has_video, height, &format.format_note) {
-            (true, 2160, _) => "2160p 4K".to_string(),
-            (true, 1440, _) => "1440p 2K".to_string(),
-            (true, 1080, _) => "1080p Full HD".to_string(),
-            (true, 720, _) => "720p HD".to_string(),
-            (true, h, _) if h > 0 => format!("{h}p"),
-            (true, _, Some(note)) => note.clone(),
-            (true, _, _) => "Video".to_string(),
-            (false, _, Some(note)) => format!("Audio · {note}"),
-            (false, _, _) => "Audio".to_string(),
+        let base_label = match (has_video, height, format.format_id.as_str(), &format.format_note) {
+            (true, _, "hd", _) => "HD 720p".to_string(),
+            (true, _, "sd", _) => "SD 360p".to_string(),
+            (true, 2160, _, _) => "2160p 4K".to_string(),
+            (true, 1440, _, _) => "1440p 2K".to_string(),
+            (true, 1080, _, _) => "1080p Full HD".to_string(),
+            (true, 720, _, _) => "720p HD".to_string(),
+            (true, h, _, _) if h > 0 => format!("{h}p"),
+            (true, _, _, Some(note)) if !note.trim().is_empty() => note.clone(),
+            (true, _, _, _) => "Video".to_string(),
+            (false, _, _, Some(note)) if !note.trim().is_empty() => format!("Audio · {note}"),
+            (false, _, _, _) => "Audio".to_string(),
+        };
+
+        let label = if has_video {
+            if !video_codec_name.is_empty() {
+                format!("{base_label} ({video_codec_name}) · {}", ext.to_uppercase())
+            } else {
+                format!("{base_label} · {}", ext.to_uppercase())
+            }
+        } else if !audio_codec_name.is_empty() {
+            format!("Audio ({audio_codec_name}) · {}", ext.to_uppercase())
+        } else {
+            format!("{base_label} · {}", ext.to_uppercase())
         };
 
         let bitrate = format.tbr.map(|tbr| (tbr * 1000.0) as u64);
         let filesize = format.filesize.or(format.filesize_approx);
         formats.push(MediaFormat {
             format_id: format.format_id,
-            label: format!("{label} · {}", ext.to_uppercase()),
+            label,
             extension: ext,
             kind: kind.to_string(),
             width: format.width,
-            height: format.height,
+            height: if height > 0 { Some(height) } else { format.height },
             fps: format.fps,
             filesize,
             bitrate,
@@ -136,11 +234,60 @@ pub async fn probe(url: &str) -> Result<MediaInfo> {
         });
     }
 
+    // Helper to score codec preference: H.264 (4) > VP9 (3) > HEVC (2) > other (2) > AV1 (1)
+    fn codec_score(label: &str) -> u8 {
+        if label.contains("(H.264)") {
+            4
+        } else if label.contains("(VP9)") {
+            3
+        } else if label.contains("(HEVC)") {
+            2
+        } else if label.contains("(AV1)") {
+            1
+        } else {
+            2
+        }
+    }
+
     formats.sort_by(|a, b| {
-        b.height
-            .unwrap_or(0)
-            .cmp(&a.height.unwrap_or(0))
-            .then_with(|| b.bitrate.unwrap_or(0).cmp(&a.bitrate.unwrap_or(0)))
+        // 1. Video before audio
+        match (a.kind.as_str(), b.kind.as_str()) {
+            ("video", "audio") => return std::cmp::Ordering::Less,
+            ("audio", "video") => return std::cmp::Ordering::Greater,
+            _ => {}
+        }
+
+        if a.kind == "video" {
+            // 2. Resolution (height) descending
+            let h_a = a.height.unwrap_or(0);
+            let h_b = b.height.unwrap_or(0);
+            if h_a != h_b {
+                return h_b.cmp(&h_a);
+            }
+
+            // 3. Codec preference (universal H.264 first)
+            let score_a = codec_score(&a.label);
+            let score_b = codec_score(&b.label);
+            if score_a != score_b {
+                return score_b.cmp(&score_a);
+            }
+
+            // 4. Combined audio+video stream over video-only
+            if a.has_audio != b.has_audio {
+                return b.has_audio.cmp(&a.has_audio);
+            }
+
+            // 5. Bitrate descending
+            b.bitrate.unwrap_or(0).cmp(&a.bitrate.unwrap_or(0))
+        } else {
+            // For audio: AAC first, then bitrate
+            let aac_a = a.label.contains("AAC") || a.extension.eq_ignore_ascii_case("m4a");
+            let aac_b = b.label.contains("AAC") || b.extension.eq_ignore_ascii_case("m4a");
+            if aac_a != aac_b {
+                return aac_b.cmp(&aac_a);
+            }
+            b.bitrate.unwrap_or(0).cmp(&a.bitrate.unwrap_or(0))
+        }
     });
     formats.dedup_by(|a, b| {
         a.format_id == b.format_id && a.extension == b.extension && a.kind == b.kind
@@ -196,8 +343,12 @@ where
     };
 
     let format = match format_id {
-        Some(id) if !id.is_empty() => format!("{id}+bestaudio/{id}/best"),
-        _ => "bv*+ba/b".to_string(),
+        Some(id) if !id.is_empty() => {
+            format!("{id}+ba[acodec^=mp4a]/{id}+ba[ext=m4a]/{id}+ba/{id}/best")
+        }
+        _ => {
+            "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/bv*[vcodec^=avc1]+ba[ext=m4a]/bv*[vcodec^=avc1]+ba/b[vcodec^=avc1]/best[ext=mp4]/bv*+ba/b".to_string()
+        }
     };
 
     let mut cmd = Command::new(yt_dlp_path());
@@ -205,8 +356,16 @@ where
     cmd.arg("--no-playlist")
         .arg("--no-warnings")
         .arg("--newline")
+        // Prefer universally playable H.264 video and AAC audio across all platforms
+        .arg("-S")
+        .arg("vcodec:h264,vcodec:vp9,res,acodec:m4a,acodec:aac")
+        // Always produce standard MP4 container
         .arg("--merge-output-format")
         .arg("mp4")
+        // Ensure any merged audio in MP4 is standardized to stereo AAC (replaces incompatible Opus),
+        // and add faststart so the file begins playing immediately without waiting for whole-file index
+        .arg("--postprocessor-args")
+        .arg("Merger+ffmpeg_o:-c:v copy -c:a aac -b:a 192k -movflags +faststart")
         .arg("-f")
         .arg(format)
         .arg("-o")

@@ -36,8 +36,7 @@ export function MediaDialog({
     try {
       const result = await invoke<MediaInfo>("media_probe", { url: trimmed });
       setInfo(result);
-      const best = result.formats.find((format) => format.kind === "video") ?? result.formats[0];
-      setSelected(best ? best.formatId : null);
+      setSelected(null);
     } catch (caught) {
       setError(String(caught));
     } finally {
@@ -70,8 +69,7 @@ export function MediaDialog({
         .then((result) => {
           if (cancelled) return;
           setInfo(result);
-          const best = result.formats.find((format) => format.kind === "video") ?? result.formats[0];
-          setSelected(best ? best.formatId : null);
+          setSelected(null);
         })
         .catch((err) => {
           if (cancelled) return;
@@ -206,8 +204,8 @@ export function MediaDialog({
           <div className="format-list">
             <label className={`format-row ${selected === null ? "selected" : ""}`}>
               <input type="radio" checked={selected === null} onChange={() => setSelected(null)} />
-              <span className="format-label">Best available quality</span>
-              <span className="format-detail">video + audio, merged automatically</span>
+              <span className="format-label">Best available quality (Universal MP4)</span>
+              <span className="format-detail">H.264 video + AAC audio, plays anywhere on Linux & Windows</span>
             </label>
             {grouped.map((group) => (
               <div key={group.kind}>
