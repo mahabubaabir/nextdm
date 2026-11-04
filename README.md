@@ -52,12 +52,14 @@ Choose the installer for your computer:
 
 ## 🌐 Browser Integration Setup
 
-NextDM integrates with your favorite web browsers using native messaging:
+NextDM integrates seamlessly with your web browsers using the native messaging standard:
 
-1. In NextDM, open **Options → Browser** and click **Install for Chromium and Firefox**.
-2. Load the companion extension once:
-   - **Chrome / Chromium / Brave / Edge / Vivaldi**: Go to `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select `~/.local/share/nextdm/browser-extension/chromium`.
-   - **Firefox**: Go to `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**, and choose `~/.local/share/nextdm/browser-extension/firefox/manifest.json`.
+1. In NextDM, open **Options → Browser** and click **Register Native Messaging Host**.
+2. Install the companion extension:
+   - **Mozilla Firefox (Official 1-Click Install)**:
+     Install directly from Mozilla Add-ons: [NextDM Integration on Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/nextdm-integration/)
+   - **Chrome / Chromium / Brave / Edge / Vivaldi**:
+     Go to `chrome://extensions`, enable **Developer mode**, click **Load unpacked**, and select the unpacked `chromium` folder (or upload the ready bundle to Chrome Web Store).
 
 ---
 

@@ -420,39 +420,52 @@ export function OptionsDialog({
                 <div className="integration-card-header">
                   <div className="integration-card-title">
                     <Icon name="external" size={16} />
-                    <span>Web Store Installation (Universal for Any PC)</span>
+                    <span>Browser Extension Installation</span>
                   </div>
-                  <span className="status-pill status-pill-info">Recommended</span>
+                  <span className="status-pill status-pill-info">Universal for Any PC</span>
                 </div>
                 <p className="integration-card-desc">
-                  Upload the extension to Chrome Web Store and Firefox Add-ons (AMO) for 1-click installation on any computer without needing developer mode or unpacking files. Ready-to-upload store packages (.zip) are bundled automatically.
+                  Install the companion browser extension to capture downloads and grab online videos with 1 click. Works on any computer without needing developer mode or unpacking files.
                 </p>
                 <div className="store-links-grid">
                   <div className="store-link-item">
                     <div className="store-item-info">
-                      <strong>Chrome / Chromium Web Store</strong>
-                      <span className="muted">For Google Chrome, Brave, Edge & Vivaldi</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <strong>Mozilla Firefox Add-on</strong>
+                        <span className="status-pill status-pill-ok" style={{ fontSize: "11px", padding: "1px 6px" }}>
+                          ✓ Approved & Live
+                        </span>
+                      </div>
+                      <span className="muted">Official 1-click install from Mozilla Add-ons (AMO)</span>
                     </div>
                     <div className="inline-field">
                       <button
-                        className="secondary-button compact"
-                        onClick={() => openExternalUrl("https://chrome.google.com/webstore/devconsole")}
+                        className="primary-button compact"
+                        onClick={() => openExternalUrl("https://addons.mozilla.org/en-US/firefox/addon/nextdm-integration/")}
                       >
-                        <Icon name="external" size={13} /> Open Developer Dashboard
+                        <Icon name="external" size={13} /> Add to Firefox (AMO)
                       </button>
                     </div>
                   </div>
                   <div className="store-link-item">
                     <div className="store-item-info">
-                      <strong>Mozilla Firefox Add-ons (AMO)</strong>
-                      <span className="muted">For Firefox, Floorp, LibreWolf & Waterfox</span>
+                      <strong>Chrome / Chromium / Brave / Edge</strong>
+                      <span className="muted">For Google Chrome, Brave, Edge & Vivaldi</span>
                     </div>
-                    <div className="inline-field">
+                    <div className="inline-field" style={{ gap: "6px" }}>
                       <button
                         className="secondary-button compact"
-                        onClick={() => openExternalUrl("https://addons.mozilla.org/developers/addon/submit/upload-listed")}
+                        onClick={openExtFolder}
+                        title="Open folder containing ready-to-upload store packages and unpacked extension"
                       >
-                        <Icon name="external" size={13} /> Open Add-on Developer Hub
+                        <Icon name="folder" size={13} /> Extensions Folder
+                      </button>
+                      <button
+                        className="secondary-button compact"
+                        onClick={() => openExternalUrl("https://chrome.google.com/webstore/devconsole")}
+                        title="Upload nextdm-chrome-webstore.zip to Chrome Web Store"
+                      >
+                        <Icon name="external" size={13} /> Developer Dashboard
                       </button>
                     </div>
                   </div>
@@ -464,18 +477,18 @@ export function OptionsDialog({
                 <div className="integration-card-header">
                   <div className="integration-card-title">
                     <Icon name="options" size={16} />
-                    <span>Offline / Local Developer Mode</span>
+                    <span>Developer / Manual Unpacked Mode</span>
                   </div>
                 </div>
                 <p className="integration-card-desc">
-                  To test locally before publishing to web stores:
+                  For developing or testing the unpacked extension locally without installing from the web store:
                 </p>
                 <ul className="integration-steps">
                   <li>
-                    <strong>Chromium / Chrome / Brave / Edge:</strong> Open <code>chrome://extensions</code>, enable <em>Developer mode</em>, click <em>Load unpacked</em>, and select the <code>chromium</code> folder inside the extensions directory.
+                    <strong>Chromium / Chrome / Brave / Edge:</strong> Open <code>chrome://extensions</code>, enable <em>Developer mode</em>, click <em>Load unpacked</em>, and select the unpacked <code>chromium</code> folder.
                   </li>
                   <li>
-                    <strong>Firefox:</strong> Open <code>about:debugging#/runtime/this-firefox</code>, click <em>Load Temporary Add-on</em>, and select <code>manifest.json</code> inside the <code>firefox</code> folder.
+                    <strong>Firefox:</strong> You do not need developer mode! Install the official signed add-on from the <button type="button" onClick={() => openExternalUrl("https://addons.mozilla.org/en-US/firefox/addon/nextdm-integration/")} style={{ background: "none", border: "none", color: "var(--accent)", cursor: "pointer", textDecoration: "underline", padding: 0, font: "inherit" }}>Mozilla Add-ons Store</button> with 1 click.
                   </li>
                 </ul>
               </div>

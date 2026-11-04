@@ -135,6 +135,17 @@ export function AboutView({ engineVersion }: { engineVersion: string }) {
                 <strong>Media Extraction:</strong> yt-dlp & FFmpeg
               </div>
               <div className="credits-section">
+                <strong>Firefox Extension:</strong>{" "}
+                <a
+                  href="https://addons.mozilla.org/en-US/firefox/addon/nextdm-integration/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="credits-link"
+                >
+                  addons.mozilla.org/addon/nextdm-integration
+                </a>
+              </div>
+              <div className="credits-section">
                 <strong>Repository:</strong>{" "}
                 <a
                   href="https://github.com/mahabubaabir/nextdm"
