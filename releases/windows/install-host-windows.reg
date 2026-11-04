@@ -1,0 +1,19 @@
+Windows Registry Editor Version 5.00
+
+; NextDM Native Messaging Host Registry Entries
+; For Mozilla Firefox, Google Chrome, Microsoft Edge, Brave, and Vivaldi
+
+[HKEY_CURRENT_USER\Software\Mozilla\NativeMessagingHosts\com.nextdm.host]
+@="%APPDATA%\\Mozilla\\NativeMessagingHosts\\com.nextdm.host.json"
+
+[HKEY_CURRENT_USER\Software\Google\Chrome\NativeMessagingHosts\com.nextdm.host]
+@="%LOCALAPPDATA%\\nextdm\\com.nextdm.host.chromium.json"
+
+[HKEY_CURRENT_USER\Software\Microsoft\Edge\NativeMessagingHosts\com.nextdm.host]
+@="%LOCALAPPDATA%\\nextdm\\com.nextdm.host.chromium.json"
+
+[HKEY_CURRENT_USER\Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.nextdm.host]
+@="%LOCALAPPDATA%\\nextdm\\com.nextdm.host.chromium.json"
+
+[HKEY_CURRENT_USER\Software\Vivaldi\NativeMessagingHosts\com.nextdm.host]
+@="%LOCALAPPDATA%\\nextdm\\com.nextdm.host.chromium.json"

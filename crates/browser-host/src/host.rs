@@ -125,11 +125,22 @@ fn find_desktop_binary() -> PathBuf {
     }
 
     if let Ok(current) = std::env::current_exe() {
+        let file_stem = current
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        // If current binary is the desktop executable itself (not a dedicated host binary),
+        // use it directly.
+        if !file_stem.contains("host") && current.is_file() {
+            return current;
+        }
+
         if let Some(parent) = current.parent() {
             let names = if cfg!(windows) {
-                &["nextdm-desktop.exe", "NextDM.exe", "nextdm.exe"][..]
+                &["NextDM.exe", "nextdm.exe", "nextdm-desktop.exe"][..]
             } else {
-                &["nextdm-desktop", "NextDM"][..]
+                &["nextdm-desktop", "NextDM", "nextdm"][..]
             };
             for name in names {
                 let sibling = parent.join(name);

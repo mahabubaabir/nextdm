@@ -60,6 +60,7 @@ jobs:
           if compgen -G "target/release/bundle/nsis/*.exe" > /dev/null; then
             cp target/release/bundle/nsis/*.exe dist-windows/
           fi
+          cp releases/windows/* dist-windows/
           ls -la dist-windows/
 
       - name: Upload Artifacts

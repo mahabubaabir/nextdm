@@ -21,6 +21,17 @@ static FIREFOX_EXTENSION: Dir<'_> =
 static CHROME_ZIP: &[u8] = include_bytes!("../extensions/nextdm-chromium.zip");
 static FIREFOX_ZIP: &[u8] = include_bytes!("../extensions/nextdm-firefox.xpi");
 
+fn clean_path(path: PathBuf) -> PathBuf {
+    #[cfg(windows)]
+    {
+        let s = path.to_string_lossy();
+        if let Some(stripped) = s.strip_prefix(r"\\?\") {
+            return PathBuf::from(stripped);
+        }
+    }
+    path
+}
+
 /// Returns the directory where browser extensions and store packages are saved.
 pub fn get_extension_dir() -> Result<PathBuf, String> {
     let home = std::env::var_os("HOME")
@@ -37,7 +48,7 @@ pub fn get_extension_dir() -> Result<PathBuf, String> {
         let appdata = std::env::var_os("APPDATA")
             .map(PathBuf::from)
             .unwrap_or_else(|| home.join(r"AppData\Roaming"));
-        Ok(appdata.join(r"nextdm\browser-extension"))
+        Ok(clean_path(appdata.join(r"nextdm\browser-extension")))
     }
 }
 
@@ -78,9 +89,23 @@ pub fn is_host_installed() -> bool {
         {
             return true;
         }
+        if appdata
+            .join(r"nextdm\browser-extension")
+            .join(format!("{HOST_NAME}.json"))
+            .is_file()
+        {
+            return true;
+        }
         let local_app_data = std::env::var_os("LOCALAPPDATA")
             .map(PathBuf::from)
             .unwrap_or_else(|| home.join(r"AppData\Local"));
+        if local_app_data
+            .join(r"nextdm")
+            .join(format!("{HOST_NAME}.chromium.json"))
+            .is_file()
+        {
+            return true;
+        }
         if local_app_data
             .join(r"Google\Chrome\User Data\NativeMessagingHosts")
             .join(format!("{HOST_NAME}.json"))
@@ -109,7 +134,7 @@ pub fn install(
     let _ = fs::write(base_ext_dir.join("nextdm-firefox-amo.zip"), FIREFOX_ZIP);
 
     let host_path = if let Some(host_bin) = find_host_binary(&home) {
-        host_bin
+        clean_path(host_bin)
     } else {
         #[cfg(unix)]
         {
@@ -122,7 +147,7 @@ pub fn install(
         }
         #[cfg(windows)]
         {
-            std::env::current_exe().map_err(stringify)?
+            clean_path(std::env::current_exe().map_err(stringify)?)
         }
     };
 
@@ -132,10 +157,14 @@ pub fn install(
         let extension_dir = base_ext_dir.join("chromium");
         extract(&CHROMIUM_EXTENSION, &extension_dir)?;
 
-        let mut allowed_origins = vec![format!("chrome-extension://{CHROMIUM_EXTENSION_ID}/")];
+        let mut allowed_origins = vec![
+            format!("chrome-extension://{CHROMIUM_EXTENSION_ID}/"),
+            "chrome-extension://ngpampappnmepgilojfohadhhmbhlaek/".to_string(),
+            "chrome-extension://llbjbkhnmlidjebalopleeepgdfgcpec/".to_string(),
+        ];
         if let Some(custom) = custom_chrome_id.as_deref() {
             let trimmed = custom.trim();
-            if !trimmed.is_empty() && trimmed != CHROMIUM_EXTENSION_ID {
+            if !trimmed.is_empty() && !allowed_origins.iter().any(|o| o.contains(trimmed)) {
                 allowed_origins.push(format!("chrome-extension://{trimmed}/"));
             }
         }
@@ -160,6 +189,16 @@ pub fn install(
         {
             let manifest_path = base_ext_dir.join(format!("{HOST_NAME}.json"));
             let _ = fs::write(&manifest_path, &json);
+
+            // Also write to %LOCALAPPDATA%\nextdm\com.nextdm.host.chromium.json
+            let local_app_data = std::env::var_os("LOCALAPPDATA")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| home.join(r"AppData\Local"));
+            let local_dir = local_app_data.join("nextdm");
+            let _ = fs::create_dir_all(&local_dir);
+            let local_manifest = local_dir.join(format!("{HOST_NAME}.chromium.json"));
+            let _ = fs::write(&local_manifest, &json);
+
             let keys = [
                 r"HKCU\Software\Google\Chrome\NativeMessagingHosts\com.nextdm.host",
                 r"HKCU\Software\Microsoft\Edge\NativeMessagingHosts\com.nextdm.host",
@@ -222,10 +261,29 @@ pub fn install(
 
 #[cfg(windows)]
 fn register_windows_registry(key: &str, manifest_path: &Path) {
+    use std::os::windows::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
     let path_str = manifest_path.to_string_lossy();
-    let _ = std::process::Command::new("reg")
+    match std::process::Command::new("reg")
         .args(["add", key, "/ve", "/t", "REG_SZ", "/d", &path_str, "/f"])
-        .output();
+        .creation_flags(CREATE_NO_WINDOW)
+        .output()
+    {
+        Ok(out) => {
+            if !out.status.success() {
+                tracing::warn!(
+                    key,
+                    stderr = %String::from_utf8_lossy(&out.stderr),
+                    "reg add returned non-zero exit code"
+                );
+            } else {
+                tracing::info!(key, "Successfully registered native host registry key");
+            }
+        }
+        Err(err) => {
+            tracing::warn!(%err, key, "Failed to execute reg.exe to register native host");
+        }
+    }
 }
 
 fn find_host_binary(home: &Path) -> Option<PathBuf> {
@@ -239,18 +297,18 @@ fn find_host_binary(home: &Path) -> Option<PathBuf> {
             for name in names {
                 let sibling = parent.join(name);
                 if sibling.is_file() {
-                    return Some(sibling);
+                    return Some(clean_path(sibling));
                 }
             }
         }
     }
     let usr_bin = PathBuf::from("/usr/bin/nextdm-host");
     if usr_bin.is_file() {
-        return Some(usr_bin);
+        return Some(clean_path(usr_bin));
     }
     let local_bin = home.join(".local/bin/nextdm-host");
     if local_bin.is_file() {
-        return Some(local_bin);
+        return Some(clean_path(local_bin));
     }
     None
 }

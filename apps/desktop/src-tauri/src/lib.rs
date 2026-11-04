@@ -537,6 +537,15 @@ pub fn run() {
             build_tray(app)?;
             ipc::spawn(app.handle().clone(), engine.clone());
 
+            // Automatically verify and install browser native-messaging manifests and Windows registry keys
+            tauri::async_runtime::spawn(async move {
+                if let Err(err) = integration::install(true, true, None) {
+                    tracing::warn!("Auto browser integration registration: {err}");
+                } else {
+                    tracing::info!("Auto browser integration manifests and registry verified");
+                }
+            });
+
             let resume_engine = engine.clone();
             tauri::async_runtime::spawn(async move {
                 if auto_resume {
@@ -641,6 +650,11 @@ pub fn run() {
 /// launcher script before Tauri is initialized.
 pub fn run_native_host() -> ! {
     std::process::exit(nextdm_browser_host::run_native_host());
+}
+
+/// Headless installer for browser native-messaging integration.
+pub fn install_integration_headless() -> Result<Vec<String>, String> {
+    integration::install(true, true, None)
 }
 
 #[allow(dead_code)]
