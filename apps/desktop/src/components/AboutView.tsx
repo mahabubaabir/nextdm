@@ -26,7 +26,13 @@ function isNewerVersion(current: string, latest: string): boolean {
   return false;
 }
 
-export function AboutView({ engineVersion }: { engineVersion: string }) {
+export function AboutView({
+  engineVersion,
+  onOpenUpdateManager,
+}: {
+  engineVersion: string;
+  onOpenUpdateManager?: () => void;
+}) {
   const [sparkles, setSparkles] = useState<SparkleParticle[]>([]);
   const [showCredits, setShowCredits] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "latest" | "available" | "error">("idle");
@@ -158,10 +164,16 @@ export function AboutView({ engineVersion }: { engineVersion: string }) {
             <button
               type="button"
               className="about-credits-btn"
-              onClick={checkForUpdates}
+              onClick={() => {
+                if (onOpenUpdateManager) {
+                  onOpenUpdateManager();
+                } else {
+                  checkForUpdates();
+                }
+              }}
               disabled={updateStatus === "checking"}
             >
-              {updateStatus === "checking" ? "Checking…" : "Check for Updates"}
+              Update Manager…
             </button>
           </div>
 

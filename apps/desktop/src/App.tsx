@@ -18,6 +18,7 @@ import { DownloadCompleteDialog } from "./components/DownloadCompleteDialog";
 import { OptionsDialog } from "./components/OptionsDialog";
 import { MediaDialog } from "./components/MediaDialog";
 import { AboutView } from "./components/AboutView";
+import { UpdateManagerDialog } from "./components/UpdateManagerDialog";
 import { Modal } from "./components/Modal";
 import { Logo } from "./components/Icons";
 import { DEFAULT_SETTINGS, categoryLabel, cx, isDownloadableUrl, isMediaSiteUrl, isProbablyUrl } from "./lib";
@@ -102,6 +103,7 @@ function App() {
   const [sort, setSort] = useState<SortState>({ column: "date", direction: "desc" });
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialog, setDialog] = useState<"add" | "options" | "media" | "about" | null>(null);
+  const [updateManagerOpen, setUpdateManagerOpen] = useState(false);
   const [initialUrls, setInitialUrls] = useState("");
   const [mediaDialogUrl, setMediaDialogUrl] = useState<string>("");
   const [fileInfoUrl, setFileInfoUrl] = useState<string | null>(null);
@@ -110,7 +112,7 @@ function App() {
   const [clipboardDetectedUrl, setClipboardDetectedUrl] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; download: DownloadInfo } | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [engineVersion, setEngineVersion] = useState("0.1.0");
+  const [engineVersion, setEngineVersion] = useState("0.1.1");
 
   const lastSelected = useRef<string | null>(null);
   const settingsRef = useRef(settings);
@@ -681,6 +683,7 @@ function App() {
     {
       label: "Help",
       items: [
+        { label: "Update Manager…", onClick: () => setUpdateManagerOpen(true) },
         { label: "About NextDM", onClick: () => setDialog("about") },
       ],
     },
@@ -962,6 +965,10 @@ function App() {
         onClose={closeOptions}
         onSave={saveOptions}
         onPreviewTheme={(theme) => setSettings((current) => ({ ...current, theme }))}
+        onOpenUpdateManager={() => {
+          closeOptions();
+          setUpdateManagerOpen(true);
+        }}
       />
 
       <MediaDialog
@@ -989,9 +996,22 @@ function App() {
             </div>
           }
         >
-          <AboutView engineVersion={engineVersion} />
+          <AboutView
+            engineVersion={engineVersion}
+            onOpenUpdateManager={() => {
+              setDialog(null);
+              setUpdateManagerOpen(true);
+            }}
+          />
         </Modal>
       ) : null}
+
+      <UpdateManagerDialog
+        open={updateManagerOpen}
+        currentVersion={engineVersion}
+        onClose={() => setUpdateManagerOpen(false)}
+        onOpenOptions={openOptions}
+      />
 
       <Toasts toasts={toasts} onDismiss={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
     </div>

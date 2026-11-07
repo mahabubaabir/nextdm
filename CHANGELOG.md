@@ -44,3 +44,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **In-Browser Video Grabber:** Floating download badge for video players across YouTube, Facebook, Twitter, and HTML5 video sites, with Mini Grabber and Full Button modes.
 - **Themes & Visuals:** Initial theme collection including Classic Linux Mint, Modern Dark, Liquid Glass, and Material 3 Expressive, with custom transparent monochrome vector iconography.
 - **Packaging:** Debian package (`.deb`) for Linux Mint / Ubuntu and Windows Portable / NSIS setup installers.
+

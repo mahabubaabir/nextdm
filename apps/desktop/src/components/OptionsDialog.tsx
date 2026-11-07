@@ -27,12 +27,14 @@ export function OptionsDialog({
   onClose,
   onSave,
   onPreviewTheme,
+  onOpenUpdateManager,
 }: {
   open: boolean;
   settings: Settings;
   onClose: () => void;
   onSave: (settings: Settings) => void;
   onPreviewTheme: (theme: Settings["theme"]) => void;
+  onOpenUpdateManager?: () => void;
 }) {
   const [tab, setTab] = useState<Tab>("general");
   const [draft, setDraft] = useState<Settings>(settings);
@@ -662,7 +664,7 @@ export function OptionsDialog({
 
           {tab === "advanced" ? (
             <section className="option-section">
-              <AboutView engineVersion="0.1.1" />
+              <AboutView engineVersion="0.1.1" onOpenUpdateManager={onOpenUpdateManager} />
             </section>
           ) : null}
         </div>

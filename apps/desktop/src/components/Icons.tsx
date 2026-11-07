@@ -37,7 +37,12 @@ export type IconName =
   | "trash"
   | "play"
   | "arrowDown"
-  | "grid";
+  | "grid"
+  | "mint"
+  | "clear"
+  | "selectAll"
+  | "installUpdates"
+  | "package";
 
 export function Icon({
   name,
@@ -316,6 +321,45 @@ export function Icon({
           <rect x="14" y="3" width="7" height="7" rx="1" />
           <rect x="14" y="14" width="7" height="7" rx="1" />
           <rect x="3" y="14" width="7" height="7" rx="1" />
+        </svg>
+      );
+    case "mint":
+      return (
+        <svg {...common} viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" fill="#87c375" />
+          <path
+            d="M7.5 15.5V11a2.5 2.5 0 0 1 5 0v4.5M12.5 15.5V11a2.5 2.5 0 0 1 5 0v4.5"
+            stroke="#ffffff"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
+        </svg>
+      );
+    case "clear":
+      return (
+        <svg {...common}>
+          <rect x="3.5" y="3.5" width="17" height="17" rx="2" />
+          <path d="m8.5 8.5 7 7M15.5 8.5l-7 7" />
+        </svg>
+      );
+    case "selectAll":
+      return (
+        <svg {...common}>
+          <rect x="3.5" y="3.5" width="17" height="17" rx="2" />
+          <path d="m7.5 12 3 3 6-6" />
+        </svg>
+      );
+    case "installUpdates":
+      return (
+        <svg {...common}>
+          <path d="M12 3v11M7.5 9.5 12 14.5l4.5-5M4 17.5v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+        </svg>
+      );
+    case "package":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 16V8M8.5 11.5 12 8l3.5 3.5" />
         </svg>
       );
     default:
