@@ -30,7 +30,13 @@ Choose the installer for your computer:
 - 🚀 **[Download Windows Standalone Portable (.exe)](https://github.com/mahabubaabir/nextdm/releases/download/v0.1.1/NextDM_0.1.1_x64_portable.exe)** — *No installation needed, run directly on any Windows PC.*
 
 ### 🐧 Linux (Linux Mint / Ubuntu / Debian)
-- 📦 **[Download NextDM 0.1.1 (.deb)](https://github.com/mahabubaabir/nextdm/releases/download/v0.1.1/NextDM_0.1.1_amd64.deb)** — *Install with `sudo dpkg -i NextDM_0.1.1_amd64.deb` or double-click to install.*
+- 🟢 **Install via Official APT Repository (Automatic Updates via Mint Update Manager):**
+  ```bash
+  echo "deb [arch=amd64 trusted=yes] https://raw.githubusercontent.com/mahabubaabir/nextdm/main/packaging/apt stable main" | sudo tee /etc/apt/sources.list.d/nextdm.list
+  sudo apt update
+  sudo apt install next-dm
+  ```
+- 📦 **[Direct Download NextDM 0.1.1 (.deb)](https://github.com/mahabubaabir/nextdm/releases/download/v0.1.1/NextDM_0.1.1_amd64.deb)** — *Install with `sudo dpkg -i NextDM_0.1.1_amd64.deb` or double-click to install.*
 
 📜 **[View Full Changelog & Release History](CHANGELOG.md)**
 
