@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { invoke } from "@tauri-apps/api/core";
 import { Icon } from "./Icons";
 
 export interface UpdateManagerDialogProps {
@@ -113,22 +114,16 @@ export function UpdateManagerDialog({
 
   const handleInstall = async () => {
     setIsInstalling(true);
-    setInstallStatus("Preparing package download...");
+    setInstallStatus("Launching Linux Mint Package Installer...");
     try {
-      // Direct download link for Linux Mint .deb
-      const debUrl = `https://github.com/mahabubaabir/nextdm/releases/download/v${latestTag || "0.1.1"}/NextDM_${latestTag || "0.1.1"}_amd64.deb`;
-      setInstallStatus("Opening download package in installer...");
-      await openUrl(debUrl);
-      setTimeout(() => {
-        setInstallStatus("Package opened! Follow system prompt to complete installation.");
-        setIsInstalling(false);
-      }, 1500);
+      await invoke("launch_package_installer", { version: latestTag || "0.1.1" });
+      setInstallStatus("Package Installer opened! Follow system prompt to complete installation.");
+      setIsInstalling(false);
     } catch {
-      if (releaseUrl) {
-        openUrl(releaseUrl);
-      } else {
-        openUrl("https://github.com/mahabubaabir/nextdm/releases");
-      }
+      // Fallback
+      const debUrl = releaseUrl || `https://github.com/mahabubaabir/nextdm/releases/download/v${latestTag || "0.1.1"}/NextDM_${latestTag || "0.1.1"}_amd64.deb`;
+      await openUrl(debUrl);
+      setInstallStatus("Package downloaded. Open it to install.");
       setIsInstalling(false);
     }
   };

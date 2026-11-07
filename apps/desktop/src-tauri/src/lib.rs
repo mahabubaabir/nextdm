@@ -181,6 +181,65 @@ async fn install_yt_dlp_cmd() -> Result<String, String> {
 }
 
 #[tauri::command]
+async fn launch_package_installer(version: Option<String>) -> Result<String, String> {
+    let ver = version.unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
+    let mut candidate = std::path::PathBuf::from(&home)
+        .join("Downloads")
+        .join(format!("NextDM_{}_amd64.deb", ver));
+
+    if !candidate.exists() {
+        if let Ok(entries) = std::fs::read_dir(std::path::PathBuf::from(&home).join("Downloads")) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if (name.starts_with("NextDM_") || name.starts_with("next-dm_")) && name.ends_with(".deb") {
+                    candidate = entry.path();
+                    break;
+                }
+            }
+        }
+    }
+
+    if !candidate.exists() {
+        let tmp_deb = std::path::PathBuf::from(format!("/tmp/NextDM_{}_amd64.deb", ver));
+        let url = format!(
+            "https://github.com/mahabubaabir/nextdm/releases/download/v{}/NextDM_{}_amd64.deb",
+            ver, ver
+        );
+        let status = std::process::Command::new("curl")
+            .args(["-sL", &url, "-o", tmp_deb.to_str().unwrap_or("/tmp/nextdm.deb")])
+            .status()
+            .map_err(|e| format!("Failed to download update: {e}"))?;
+        if !status.success() {
+            return Err("Failed to download Debian package from GitHub Releases".into());
+        }
+        candidate = tmp_deb;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        if std::path::Path::new("/usr/bin/captain").exists() {
+            std::process::Command::new("/usr/bin/captain")
+                .arg(&candidate)
+                .spawn()
+                .map_err(|e| format!("Failed to launch Linux Mint package installer: {e}"))?;
+            Ok(format!("Opened {}", candidate.display()))
+        } else {
+            std::process::Command::new("xdg-open")
+                .arg(&candidate)
+                .spawn()
+                .map_err(|e| format!("Failed to open package: {e}"))?;
+            Ok(format!("Opened {}", candidate.display()))
+        }
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        Ok(format!("Downloaded {}", candidate.display()))
+    }
+}
+
+#[tauri::command]
 fn open_path(path: String) -> Result<(), String> {
     #[cfg(unix)]
     {
@@ -703,6 +762,7 @@ pub fn run() {
             export_settings_json,
             import_settings_json,
             install_yt_dlp_cmd,
+            launch_package_installer,
         ])
         .run(tauri::generate_context!())
         .expect("error while running NextDM");
