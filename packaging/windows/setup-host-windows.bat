@@ -15,6 +15,8 @@ if exist "%SCRIPT_DIR%nextdm-host.exe" (
     set "HOST_EXE=%SCRIPT_DIR%nextdm-host.exe"
 ) else if exist "%SCRIPT_DIR%NextDM.exe" (
     set "HOST_EXE=%SCRIPT_DIR%NextDM.exe"
+) else if exist "%SCRIPT_DIR%NextDM_0.1.1_x64_portable.exe" (
+    set "HOST_EXE=%SCRIPT_DIR%NextDM_0.1.1_x64_portable.exe"
 ) else if exist "%SCRIPT_DIR%NextDM_0.1.0_x64_portable.exe" (
     set "HOST_EXE=%SCRIPT_DIR%NextDM_0.1.0_x64_portable.exe"
 ) else if exist "%LOCALAPPDATA%\Programs\NextDM\NextDM.exe" (

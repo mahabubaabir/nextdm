@@ -4,10 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - 'apps/**'
-      - 'crates/**'
-      - '.github/workflows/build-windows.yml'
+    tags:
+      - 'v*'
 
 jobs:
   build-windows:
@@ -56,7 +54,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist-windows
-          cp target/release/nextdm-desktop.exe dist-windows/NextDM_0.1.0_x64_portable.exe
+          cp target/release/nextdm-desktop.exe dist-windows/NextDM_0.1.1_x64_portable.exe
           cp target/release/nextdm-host.exe dist-windows/nextdm-host.exe
           if [ -f apps/desktop/src-tauri/bin/yt-dlp.exe ]; then
             cp apps/desktop/src-tauri/bin/yt-dlp.exe dist-windows/yt-dlp.exe
@@ -78,10 +76,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
+          TAG="${GITHUB_REF_NAME}"
+          if [ -z "$TAG" ] || [ "$TAG" = "main" ]; then
+            TAG="v0.1.1"
+          fi
+          gh release view "$TAG" || gh release create "$TAG" --title "NextDM $TAG" --notes "NextDM Release $TAG - See CHANGELOG.md for details." || true
           for file in dist-windows/*; do
             if [ -f "$file" ]; then
-              echo "Uploading $file to GitHub release v0.1.0..."
-              gh release upload v0.1.0 "$file" --clobber || true
+              echo "Uploading $file to GitHub release $TAG..."
+              gh release upload "$TAG" "$file" --clobber || true
             fi
           done
 

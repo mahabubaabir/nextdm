@@ -283,7 +283,7 @@ function App() {
         if (!res.ok) return;
         const data = await res.json();
         const tag = (data.tag_name || "").replace(/^v/, "");
-        const current = "0.1.0";
+        const current = "0.1.1";
         const tagParts = tag.split(".").map(Number);
         const curParts = current.split(".").map(Number);
         let isNewer = false;

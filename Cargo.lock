@@ -2424,7 +2424,7 @@ checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
 
 [[package]]
 name = "nextdm-browser-host"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -2435,7 +2435,7 @@ dependencies = [
 
 [[package]]
 name = "nextdm-desktop"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "include_dir",
@@ -2457,7 +2457,7 @@ dependencies = [
 
 [[package]]
 name = "nextdm-engine"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bytes",
  "chrono",
@@ -2480,7 +2480,7 @@ dependencies = [
 
 [[package]]
 name = "nextdm-media"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "reqwest 0.12.28",
  "serde",
