@@ -85,23 +85,43 @@
       if (textSpan) textSpan.textContent = "Opening NextDM...";
 
       // Determine best media target
-      let targetUrl = window.location.href;
-      let directSrc = targetVideo.currentSrc || targetVideo.src;
+      const pageUrl = window.location.href;
+      const directSrc = targetVideo.currentSrc || targetVideo.src || "";
 
-      // If YouTube or Facebook, pass page URL so yt-dlp parses high-res streams
-      const isMediaSite =
+      // Check if directSrc is unusable directly (blob:, data:, or fragmented transport stream chunk)
+      const isBlobOrData = directSrc.startsWith("blob:") || directSrc.startsWith("data:");
+      const isChunk =
+        directSrc.includes(".ts") ||
+        directSrc.includes(".m4s") ||
+        directSrc.includes("/segment") ||
+        directSrc.includes("range=");
+
+      const isKnownMediaSite =
         location.hostname.includes("youtube.com") ||
         location.hostname.includes("youtu.be") ||
         location.hostname.includes("facebook.com") ||
+        location.hostname.includes("fb.watch") ||
+        location.hostname.includes("instagram.com") ||
         location.hostname.includes("twitter.com") ||
         location.hostname.includes("x.com") ||
         location.hostname.includes("tiktok.com") ||
-        location.hostname.includes("vimeo.com");
+        location.hostname.includes("vimeo.com") ||
+        location.hostname.includes("dailymotion.com") ||
+        location.hostname.includes("bilibili.com") ||
+        location.hostname.includes("reddit.com") ||
+        location.hostname.includes("twitch.tv");
+
+      // If it's a known media site, or if directSrc is a blob or chunk,
+      // we pass pageUrl so yt-dlp's extractors can discover the complete high-res stream!
+      let targetUrl = pageUrl;
+      if (!isKnownMediaSite && directSrc && !isBlobOrData && !isChunk) {
+        targetUrl = directSrc;
+      }
 
       chrome.runtime.sendMessage({
         type: "nextdm_grab_media",
-        url: isMediaSite ? targetUrl : directSrc || targetUrl,
-        pageUrl: targetUrl,
+        url: targetUrl,
+        pageUrl: pageUrl,
         title: document.title,
       });
 

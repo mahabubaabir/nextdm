@@ -20,6 +20,18 @@ use crate::types::{
     DownloadInfo, DownloadSpec, DownloadStatus, EngineConfig, EngineEvent, EngineStats, Segment,
 };
 
+pub fn category_subfolder(category: &str) -> &'static str {
+    match category {
+        "video" => "Video",
+        "compressed" => "Compressed",
+        "documents" => "Documents",
+        "music" => "Music",
+        "programs" => "Programs",
+        "images" => "Images",
+        _ => "",
+    }
+}
+
 #[derive(Clone)]
 pub struct Engine {
     inner: Arc<Inner>,
@@ -153,15 +165,6 @@ impl Engine {
             return Err(Error::message("only http and https URLs are supported"));
         }
 
-        let directory = spec
-            .directory
-            .clone()
-            .unwrap_or_else(|| self.inner.default_dir.lock().clone());
-        if directory.as_os_str().is_empty() {
-            return Err(Error::InvalidDirectory(directory));
-        }
-        std::fs::create_dir_all(&directory)?;
-
         let mut probe_headers = spec.headers.clone();
         if let Some(cookies) = &spec.cookies {
             probe_headers.insert("Cookie".to_string(), cookies.clone());
@@ -177,17 +180,45 @@ impl Engine {
             &probe.final_url,
             probe.content_type.as_deref(),
         );
+
+        let category = spec
+            .category
+            .clone()
+            .unwrap_or_else(|| download::classify(&suggested).to_string());
+
+        let directory = match spec.directory {
+            Some(dir) => dir,
+            None => {
+                let base = self.inner.default_dir.lock().clone();
+                let category_routing = self
+                    .setting("category_routing")
+                    .ok()
+                    .flatten()
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(true);
+                if category_routing {
+                    let sub = category_subfolder(&category);
+                    if !sub.is_empty() {
+                        base.join(sub)
+                    } else {
+                        base
+                    }
+                } else {
+                    base
+                }
+            }
+        };
+        if directory.as_os_str().is_empty() {
+            return Err(Error::InvalidDirectory(directory));
+        }
+        std::fs::create_dir_all(&directory)?;
+
         let final_path = download::unique_path(&directory, &suggested);
         let file_name = final_path
             .file_name()
             .map(|name| name.to_string_lossy().to_string())
             .unwrap_or_else(|| suggested.clone());
         let temp_path = download::temp_path_for(&final_path);
-
-        let category = spec
-            .category
-            .clone()
-            .unwrap_or_else(|| download::classify(&file_name).to_string());
         let max_connections = spec
             .max_connections
             .unwrap_or_else(|| self.inner.max_connections.load(Ordering::Relaxed))
@@ -425,7 +456,25 @@ impl Engine {
             probe.content_type.as_deref(),
         );
         let category = download::classify(&suggested).to_string();
-        let default_dir = self.inner.default_dir.lock().to_string_lossy().to_string();
+        let base_dir = self.inner.default_dir.lock().clone();
+        let category_routing = self
+            .setting("category_routing")
+            .ok()
+            .flatten()
+            .and_then(|v| v.as_bool())
+            .unwrap_or(true);
+
+        let target_dir = if category_routing {
+            let sub = category_subfolder(&category);
+            if !sub.is_empty() {
+                base_dir.join(sub)
+            } else {
+                base_dir
+            }
+        } else {
+            base_dir
+        };
+        let default_dir = target_dir.to_string_lossy().to_string();
 
         Ok(crate::types::ProbeResult {
             url: url.to_string(),

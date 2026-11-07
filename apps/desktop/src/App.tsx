@@ -58,6 +58,7 @@ function readSettings(raw: Record<string, unknown>, defaultDir: string): Setting
   return {
     theme,
     defaultDir: typeof raw.default_dir === "string" ? raw.default_dir : defaultDir,
+    categoryRouting: raw.category_routing === undefined ? true : Boolean(raw.category_routing),
     maxConnections: Number(raw.max_connections) || DEFAULT_SETTINGS.maxConnections,
     speedLimit: Number(raw.speed_limit) || 0,
     clipboardMonitor: Boolean(raw.clipboard_monitor),
@@ -271,6 +272,39 @@ function App() {
     }, 1500);
     return () => window.clearInterval(timer);
   }, [settings.clipboardMonitor, fileInfoUrl]);
+
+  useEffect(() => {
+    // Check for updates on startup
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await fetch("https://api.github.com/repos/mahabubaabir/nextdm/releases/latest", {
+          headers: { Accept: "application/vnd.github.v3+json" },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const tag = (data.tag_name || "").replace(/^v/, "");
+        const current = "0.1.0";
+        const tagParts = tag.split(".").map(Number);
+        const curParts = current.split(".").map(Number);
+        let isNewer = false;
+        for (let i = 0; i < Math.max(tagParts.length, curParts.length); i++) {
+          const t = tagParts[i] || 0;
+          const c = curParts[i] || 0;
+          if (t > c) {
+            isNewer = true;
+            break;
+          }
+          if (t < c) break;
+        }
+        if (isNewer) {
+          notify("info", `Update available: NextDM v${tag}. Open Options > About to download.`);
+        }
+      } catch {
+        /* offline or network error */
+      }
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [notify]);
 
   const changeTheme = useCallback(
     (theme: Settings["theme"]) => {
@@ -597,7 +631,7 @@ function App() {
           onClick: () => changeTheme("classic"),
         },
         { label: "Dark theme", checked: settings.theme === "dark", onClick: () => changeTheme("dark") },
-        { label: "Liquid Glass theme (Trend)", checked: settings.theme === "glass", onClick: () => changeTheme("glass") },
+        { label: "Liquid Glass", checked: settings.theme === "glass", onClick: () => changeTheme("glass") },
         { label: "Material 3 Expressive theme", checked: settings.theme === "material3", onClick: () => changeTheme("material3") },
         {
           label: "Follow system theme",
@@ -815,6 +849,7 @@ function App() {
         open={fileInfoUrl !== null}
         initialUrl={fileInfoUrl ?? ""}
         defaultDir={settings.defaultDir}
+        categoryRouting={settings.categoryRouting ?? true}
         maxConnections={settings.maxConnections}
         onClose={() => setFileInfoUrl(null)}
         onOpenMediaExtractor={(url) => {

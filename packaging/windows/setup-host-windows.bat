@@ -121,6 +121,23 @@ if !errorlevel! equ 0 (
     echo   [-] Failed to register Vivaldi key
 )
 
+:: Check for yt-dlp media downloader
+set "YTDLP_INSTALLED=0"
+if exist "%SCRIPT_DIR%yt-dlp.exe" set "YTDLP_INSTALLED=1"
+if exist "%CHROME_DIR%\bin\yt-dlp.exe" set "YTDLP_INSTALLED=1"
+
+if "!YTDLP_INSTALLED!"=="0" (
+    echo.
+    echo [*] Downloading latest yt-dlp media extractor for online video downloads...
+    if not exist "%CHROME_DIR%\bin" mkdir "%CHROME_DIR%\bin" 2>nul
+    curl -L -s -o "%CHROME_DIR%\bin\yt-dlp.exe" https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe
+    if exist "%CHROME_DIR%\bin\yt-dlp.exe" (
+        echo   [+] yt-dlp installed successfully to "%CHROME_DIR%\bin\yt-dlp.exe"
+    )
+) else (
+    echo   [+] yt-dlp media extractor detected
+)
+
 echo.
 echo ========================================================
 echo   Registration Complete!
@@ -131,3 +148,4 @@ echo extensions without the "no such native application" error.
 echo.
 if not "%1"=="/quiet" if not "%1"=="/silent" pause
 exit /b 0
+

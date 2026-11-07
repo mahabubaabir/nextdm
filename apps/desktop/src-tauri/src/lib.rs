@@ -129,6 +129,58 @@ fn set_default_dir(state: State<'_, AppState>, path: String) -> Result<(), Strin
 }
 
 #[tauri::command]
+fn export_settings_json(state: State<'_, AppState>) -> Result<String, String> {
+    let settings = state
+        .engine
+        .store()
+        .all_settings()
+        .map_err(error_string)?;
+    let backup = serde_json::json!({
+        "app": "NextDM",
+        "version": env!("CARGO_PKG_VERSION"),
+        "exportedAt": chrono::Utc::now().to_rfc3339(),
+        "settings": settings,
+    });
+    serde_json::to_string_pretty(&backup).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn import_settings_json(state: State<'_, AppState>, json: String) -> Result<(), String> {
+    let val: serde_json::Value =
+        serde_json::from_str(&json).map_err(|e| format!("Invalid JSON: {e}"))?;
+    let settings_obj = if let Some(map) = val.get("settings").and_then(|s| s.as_object()) {
+        map
+    } else if let Some(map) = val.as_object() {
+        map
+    } else {
+        return Err("JSON does not contain a valid settings object".to_string());
+    };
+
+    for (k, v) in settings_obj {
+        let _ = state.engine.set_setting(k, v.clone());
+        if k == "speed_limit" {
+            if let Some(limit) = v.as_u64() {
+                let _ = state.engine.set_speed_limit((limit > 0).then_some(limit));
+            }
+        } else if k == "max_connections" {
+            if let Some(conns) = v.as_u64() {
+                let _ = state.engine.set_max_connections(conns as usize);
+            }
+        } else if k == "default_dir" {
+            if let Some(dir) = v.as_str() {
+                let _ = state.engine.set_default_dir(PathBuf::from(dir));
+            }
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+async fn install_yt_dlp_cmd() -> Result<String, String> {
+    nextdm_media::install_yt_dlp().await
+}
+
+#[tauri::command]
 fn open_path(path: String) -> Result<(), String> {
     #[cfg(unix)]
     {
@@ -544,6 +596,13 @@ pub fn run() {
                 } else {
                     tracing::info!("Auto browser integration manifests and registry verified");
                 }
+                #[cfg(windows)]
+                {
+                    if !nextdm_media::yt_dlp_available().await {
+                        tracing::info!("yt-dlp not detected on Windows; downloading official binary in background...");
+                        let _ = nextdm_media::install_yt_dlp().await;
+                    }
+                }
             });
 
             let resume_engine = engine.clone();
@@ -641,6 +700,9 @@ pub fn run() {
             quit_app_cmd,
             get_autostart,
             set_autostart,
+            export_settings_json,
+            import_settings_json,
+            install_yt_dlp_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running NextDM");

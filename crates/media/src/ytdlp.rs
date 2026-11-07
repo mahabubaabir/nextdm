@@ -362,10 +362,12 @@ where
         // Always produce standard MP4 container
         .arg("--merge-output-format")
         .arg("mp4")
+        .arg("--remux-video")
+        .arg("mp4")
         // Ensure any merged audio in MP4 is standardized to stereo AAC (replaces incompatible Opus),
         // and add faststart so the file begins playing immediately without waiting for whole-file index
         .arg("--postprocessor-args")
-        .arg("Merger+ffmpeg_o:-c:v copy -c:a aac -b:a 192k -movflags +faststart")
+        .arg("Merger+ffmpeg_o:-c:v copy -c:a aac -b:a 192k -movflags +faststart VideoConvertor+ffmpeg_o:-c:v copy -c:a aac -b:a 192k -movflags +faststart")
         .arg("-f")
         .arg(format)
         .arg("-o")

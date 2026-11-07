@@ -8,7 +8,7 @@ import { AboutView } from "./AboutView";
 import { cx } from "../lib";
 import type { Settings } from "../types";
 
-type Tab = "general" | "downloads" | "connections" | "speed" | "media" | "browser" | "advanced";
+type Tab = "general" | "downloads" | "connections" | "speed" | "media" | "browser" | "backup" | "advanced";
 
 const TABS: Array<{ id: Tab; label: string; icon: IconName }> = [
   { id: "general", label: "General", icon: "options" },
@@ -17,6 +17,7 @@ const TABS: Array<{ id: Tab; label: string; icon: IconName }> = [
   { id: "speed", label: "Speed Limit", icon: "speed" },
   { id: "media", label: "Media", icon: "media" },
   { id: "browser", label: "Browser", icon: "globe" },
+  { id: "backup", label: "Backup & Restore", icon: "refresh" },
   { id: "advanced", label: "About", icon: "info" },
 ];
 
@@ -116,6 +117,53 @@ export function OptionsDialog({
     }
   };
 
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupMessage, setBackupMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const handleExportBackup = async () => {
+    setBackupBusy(true);
+    setBackupMessage(null);
+    try {
+      const jsonStr = await invoke<string>("export_settings_json");
+      const blob = new Blob([jsonStr], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `nextdm-settings-backup-${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setBackupMessage({ type: "success", text: "Settings backup JSON exported successfully!" });
+    } catch (err) {
+      setBackupMessage({ type: "error", text: `Export failed: ${String(err)}` });
+    } finally {
+      setBackupBusy(false);
+    }
+  };
+
+  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBackupBusy(true);
+    setBackupMessage(null);
+    try {
+      const text = await file.text();
+      await invoke("import_settings_json", { jsonStr: text });
+      const parsed = JSON.parse(text);
+      const updated = { ...draft, ...parsed };
+      setDraft(updated);
+      onSave(updated);
+      setBackupMessage({ type: "success", text: "Settings successfully restored from backup!" });
+    } catch (err) {
+      setBackupMessage({ type: "error", text: `Import failed: ${String(err)}` });
+    } finally {
+      setBackupBusy(false);
+      e.target.value = "";
+    }
+  };
+
   const save = () => {
     onSave({ ...draft, speedLimit: Math.max(0, speedKb) * 1024 });
   };
@@ -172,7 +220,7 @@ export function OptionsDialog({
                 >
                   <option value="classic">Classic Linux Mint</option>
                   <option value="dark">Modern Dark</option>
-                  <option value="glass">Liquid Glass (Modern Trend)</option>
+                  <option value="glass">Liquid Glass</option>
                   <option value="material3">Material 3 Expressive</option>
                   <option value="system">Follow system</option>
                 </select>
@@ -207,6 +255,14 @@ export function OptionsDialog({
                   <Icon name="folder" size={14} /> Browse
                 </button>
               </div>
+              <label className="checkbox-row" style={{ marginTop: "8px" }}>
+                <input
+                  type="checkbox"
+                  checked={draft.categoryRouting ?? true}
+                  onChange={(event) => update("categoryRouting", event.target.checked)}
+                />
+                <span>Automatically sort downloads into category subfolders (Video, Compressed, Documents, Music, Programs, Images)</span>
+              </label>
 
               <h3>Startup & System</h3>
               <label className="checkbox-row">
@@ -514,6 +570,93 @@ export function OptionsDialog({
                 Supported: Chromium, Chrome, Brave, Edge, Vivaldi and Firefox. The integration listens only
                 on the local machine and never opens a public port.
               </p>
+            </section>
+          ) : null}
+
+          {tab === "backup" ? (
+            <section className="option-section">
+              <h3>Backup & Restore Settings</h3>
+              <p className="option-note">
+                Export your NextDM preferences, download folders, network configs, and appearance to a JSON backup file to restore on another computer.
+              </p>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "16px" }}>
+                <div
+                  style={{
+                    padding: "16px",
+                    background: "var(--surface)",
+                    border: "1px solid var(--border-soft)",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <h4 style={{ margin: "0 0 6px 0", fontSize: "14px", fontWeight: 600 }}>Export Configuration</h4>
+                  <p style={{ margin: "0 0 12px 0", fontSize: "12px", color: "var(--muted)" }}>
+                    Download all your custom settings into a portable JSON backup file.
+                  </p>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={handleExportBackup}
+                    disabled={backupBusy}
+                  >
+                    <Icon name="download" size={14} /> Export Backup (.json)
+                  </button>
+                </div>
+
+                <div
+                  style={{
+                    padding: "16px",
+                    background: "var(--surface)",
+                    border: "1px solid var(--border-soft)",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <h4 style={{ margin: "0 0 6px 0", fontSize: "14px", fontWeight: 600 }}>Restore Configuration</h4>
+                  <p style={{ margin: "0 0 12px 0", fontSize: "12px", color: "var(--muted)" }}>
+                    Restore settings from a previously saved NextDM JSON backup file.
+                  </p>
+                  <label
+                    className="secondary-button"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      cursor: "pointer",
+                      padding: "8px 14px",
+                    }}
+                  >
+                    <Icon name="refresh" size={14} /> Import Backup (.json)
+                    <input
+                      type="file"
+                      accept=".json,application/json"
+                      style={{ display: "none" }}
+                      onChange={handleImportBackup}
+                    />
+                  </label>
+                </div>
+
+                {backupMessage && (
+                  <div
+                    style={{
+                      padding: "10px 14px",
+                      borderRadius: "6px",
+                      fontSize: "13px",
+                      background:
+                        backupMessage.type === "success"
+                          ? "rgba(52, 211, 153, 0.15)"
+                          : "rgba(239, 68, 68, 0.15)",
+                      border: `1px solid ${
+                        backupMessage.type === "success"
+                          ? "rgba(52, 211, 153, 0.3)"
+                          : "rgba(239, 68, 68, 0.3)"
+                      }`,
+                      color: backupMessage.type === "success" ? "#34d399" : "#ef4444",
+                    }}
+                  >
+                    {backupMessage.text}
+                  </div>
+                )}
+              </div>
             </section>
           ) : null}
 

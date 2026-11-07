@@ -11,3 +11,4 @@
   DeleteRegKey HKCU "Software\BraveSoftware\Brave-Browser\NativeMessagingHosts\com.nextdm.host"
   DeleteRegKey HKCU "Software\Vivaldi\NativeMessagingHosts\com.nextdm.host"
 !macroend
+

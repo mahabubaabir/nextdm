@@ -155,7 +155,11 @@ where
 
 fn is_media_site_url(url: &str) -> bool {
     let lower = url.to_lowercase();
-    lower.contains("youtube.com/watch")
+    lower.contains(".m3u8")
+        || lower.contains(".mpd")
+        || lower.contains(".f4m")
+        || lower.contains(".ism/")
+        || lower.contains("youtube.com/watch")
         || lower.contains("youtube.com/shorts")
         || lower.contains("youtube.com/live")
         || lower.contains("youtu.be/")
@@ -174,6 +178,8 @@ fn is_media_site_url(url: &str) -> bool {
         || lower.contains("twitch.tv/videos")
         || lower.contains("bilibili.com/video")
         || lower.contains("soundcloud.com/")
+        || lower.contains("rumble.com/")
+        || lower.contains("streamtape.com/")
 }
 
 async fn dispatch(app: &AppHandle, engine: &Engine, request: HostRequest) -> HostResponse {

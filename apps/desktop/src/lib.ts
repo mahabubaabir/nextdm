@@ -13,6 +13,7 @@ export const CATEGORIES = [
 export const DEFAULT_SETTINGS: Settings = {
   theme: "classic",
   defaultDir: "",
+  categoryRouting: true,
   maxConnections: 8,
   speedLimit: 0,
   clipboardMonitor: false,
@@ -24,6 +25,40 @@ export const DEFAULT_SETTINGS: Settings = {
   compactView: false,
   autostart: true,
 };
+
+export function categorySubfolder(category: string): string {
+  switch (category?.toLowerCase()) {
+    case "video":
+      return "Video";
+    case "compressed":
+      return "Compressed";
+    case "documents":
+      return "Documents";
+    case "music":
+      return "Music";
+    case "programs":
+      return "Programs";
+    case "images":
+      return "Images";
+    default:
+      return "";
+  }
+}
+
+export function joinCategoryPath(baseDir: string, category: string): string {
+  if (!baseDir) return "";
+  const sub = categorySubfolder(category);
+  const sep = baseDir.includes("\\") ? "\\" : "/";
+  let cleanBase = baseDir.replace(/[\\/]+$/, "");
+  const knownFolders = ["video", "compressed", "documents", "music", "programs", "images", "other"];
+  const parts = cleanBase.split(/[\\/]/);
+  const lastPart = parts[parts.length - 1];
+  if (lastPart && knownFolders.includes(lastPart.toLowerCase())) {
+    parts.pop();
+    cleanBase = parts.join(sep);
+  }
+  return sub ? `${cleanBase}${sep}${sub}` : cleanBase;
+}
 
 const STATUS_LABELS: Record<DownloadStatus, string> = {
   queued: "Queued",

@@ -3,13 +3,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { Modal } from "./Modal";
 import { Icon } from "./Icons";
-import { CATEGORIES, formatBytes, isMediaSiteUrl, isProbablyUrl } from "../lib";
+import { CATEGORIES, formatBytes, isMediaSiteUrl, isProbablyUrl, joinCategoryPath } from "../lib";
 import type { DownloadInfo, ProbeResult } from "../types";
 
 export function DownloadFileInfoDialog({
   open,
   initialUrl,
   defaultDir,
+  categoryRouting = true,
   maxConnections,
   onClose,
   onStart,
@@ -19,6 +20,7 @@ export function DownloadFileInfoDialog({
   open: boolean;
   initialUrl: string;
   defaultDir: string;
+  categoryRouting?: boolean;
   maxConnections: number;
   onClose: () => void;
   onStart: (download: DownloadInfo) => void;
@@ -265,7 +267,13 @@ export function DownloadFileInfoDialog({
             <select
               className="input"
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
+              onChange={(e) => {
+                const newCat = e.target.value;
+                setCategory(newCat);
+                if (categoryRouting) {
+                  setDirectory((prev) => joinCategoryPath(prev || defaultDir, newCat));
+                }
+              }}
               style={{ width: "100%", height: "34px" }}
             >
               {CATEGORIES.map((c) => (

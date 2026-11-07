@@ -97,6 +97,7 @@ export interface MediaInfo {
 export interface Settings {
   theme: "classic" | "dark" | "glass" | "material3" | "system";
   defaultDir: string;
+  categoryRouting: boolean;
   maxConnections: number;
   speedLimit: number;
   clipboardMonitor: boolean;

@@ -1,4 +1,5 @@
 import React, { useState, useRef } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { Logo } from "./Icons";
 
 export interface SparkleParticle {
@@ -13,10 +14,43 @@ export interface SparkleParticle {
   rotate: number;
 }
 
+function isNewerVersion(current: string, latest: string): boolean {
+  const cleanCurr = current.replace(/^v/, "").split(".").map(Number);
+  const cleanLat = latest.replace(/^v/, "").split(".").map(Number);
+  for (let i = 0; i < Math.max(cleanCurr.length, cleanLat.length); i++) {
+    const c = cleanCurr[i] || 0;
+    const l = cleanLat[i] || 0;
+    if (l > c) return true;
+    if (l < c) return false;
+  }
+  return false;
+}
+
 export function AboutView({ engineVersion }: { engineVersion: string }) {
   const [sparkles, setSparkles] = useState<SparkleParticle[]>([]);
   const [showCredits, setShowCredits] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState<"idle" | "checking" | "latest" | "available" | "error">("idle");
+  const [latestVersion, setLatestVersion] = useState<string>("");
+  const [releaseUrl, setReleaseUrl] = useState<string>("");
   const sparkleIdCounter = useRef(0);
+
+  const checkForUpdates = async () => {
+    setUpdateStatus("checking");
+    try {
+      const res = await fetch("https://api.github.com/repos/mahabubaabir/nextdm/releases/latest", {
+        headers: { Accept: "application/vnd.github.v3+json" },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const tag = data.tag_name || "";
+      const isNewer = isNewerVersion(engineVersion, tag);
+      setLatestVersion(tag);
+      setReleaseUrl(data.html_url || "https://github.com/mahabubaabir/nextdm/releases");
+      setUpdateStatus(isNewer ? "available" : "latest");
+    } catch {
+      setUpdateStatus("error");
+    }
+  };
 
   const triggerSparkle = (event: React.MouseEvent<HTMLDivElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -113,7 +147,7 @@ export function AboutView({ engineVersion }: { engineVersion: string }) {
             PARTICULAR PURPOSE. See the GNU General Public License for more details.
           </p>
 
-          <div className="about-credits-row">
+          <div className="about-credits-row" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
             <button
               type="button"
               className="about-credits-btn"
@@ -121,7 +155,60 @@ export function AboutView({ engineVersion }: { engineVersion: string }) {
             >
               {showCredits ? "Hide Credits" : "Credits"}
             </button>
+            <button
+              type="button"
+              className="about-credits-btn"
+              onClick={checkForUpdates}
+              disabled={updateStatus === "checking"}
+            >
+              {updateStatus === "checking" ? "Checking…" : "Check for Updates"}
+            </button>
           </div>
+
+          {updateStatus === "latest" && (
+            <div style={{ marginTop: "10px", fontSize: "12px", color: "var(--success)" }}>
+              ✓ NextDM is up to date (v{engineVersion}).
+            </div>
+          )}
+
+          {updateStatus === "available" && (
+            <div
+              style={{
+                marginTop: "10px",
+                padding: "8px 12px",
+                background: "rgba(56, 189, 248, 0.12)",
+                border: "1px solid rgba(56, 189, 248, 0.3)",
+                borderRadius: "6px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "8px",
+              }}
+            >
+              <span style={{ fontSize: "12px", color: "var(--text)" }}>
+                🚀 <strong>New update available:</strong> {latestVersion}
+              </span>
+              <button
+                type="button"
+                className="about-credits-btn"
+                style={{
+                  background: "rgba(56, 189, 248, 0.25)",
+                  color: "#38bdf8",
+                  border: "1px solid rgba(56, 189, 248, 0.5)",
+                  cursor: "pointer",
+                }}
+                onClick={() => openUrl(releaseUrl)}
+              >
+                Download Update
+              </button>
+            </div>
+          )}
+
+          {updateStatus === "error" && (
+            <div style={{ marginTop: "10px", fontSize: "12px", color: "var(--muted)" }}>
+              Could not check for updates. You can check the repository directly on GitHub.
+            </div>
+          )}
 
           {showCredits && (
             <div className="about-credits-popover">

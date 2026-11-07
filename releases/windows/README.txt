@@ -38,3 +38,4 @@ Official Browser Extensions:
 - Firefox AMO: https://addons.mozilla.org/en-US/firefox/addon/nextdm-integration/
 - Chrome/Edge: extensions/chromium (or load unpacked from AppData\Roaming\nextdm\browser-extension\chromium)
 ========================================================================
+
