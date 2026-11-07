@@ -1,0 +1,160 @@
+name: Build Linux Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            librsvg2-dev \
+            libayatana-appindicator3-dev \
+            patchelf \
+            build-essential \
+            curl \
+            wget \
+            file \
+            dpkg-dev
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Frontend Dependencies
+        working-directory: apps/desktop
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: apps/desktop
+        run: npm run build
+
+      - name: Build nextdm-host binary
+        run: cargo build --release -p nextdm-browser-host --bin nextdm-host
+
+      - name: Stage host binary into tauri bin
+        run: |
+          mkdir -p apps/desktop/src-tauri/bin
+          cp target/release/nextdm-host apps/desktop/src-tauri/bin/nextdm-host
+
+      - name: Stage extensions
+        run: |
+          mkdir -p apps/desktop/src-tauri/extensions
+          cd extensions/chromium && zip -r ../../apps/desktop/src-tauri/extensions/nextdm-chromium.zip *
+          cd ../firefox && zip -r ../../apps/desktop/src-tauri/extensions/nextdm-firefox.xpi *
+          cd ../..
+
+      - name: Build Tauri Linux Bundle
+        working-directory: apps/desktop
+        run: npm run tauri build
+
+      - name: Prepare Linux Release Artifacts
+        run: |
+          mkdir -p dist-linux
+          DEB_FILE=$(ls target/release/bundle/deb/*.deb | head -n 1)
+          cp "$DEB_FILE" dist-linux/NextDM_0.1.1_amd64.deb
+          cp "$DEB_FILE" dist-linux/next-dm_0.1.1_amd64.deb
+          cp target/release/nextdm-desktop dist-linux/nextdm-desktop
+          cp target/release/nextdm-host dist-linux/nextdm-host
+          ls -la dist-linux/
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: NextDM-Linux-amd64
+          path: dist-linux/*
+
+      - name: Upload to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if [ -z "$TAG" ] || [ "$TAG" = "main" ]; then
+            TAG="v0.1.1"
+          fi
+          gh release view "$TAG" || gh release create "$TAG" --title "NextDM $TAG" --notes "NextDM Release $TAG" || true
+          for file in dist-linux/*; do
+            if [ -f "$file" ]; then
+              echo "Uploading $file to GitHub release $TAG..."
+              gh release upload "$TAG" "$file" --clobber || true
+            fi
+          done
+
+      - name: Update APT Repository in packaging/apt
+        run: |
+          mkdir -p packaging/apt/pool/main/n/next-dm
+          mkdir -p packaging/apt/dists/stable/main/binary-amd64
+          cp dist-linux/next-dm_0.1.1_amd64.deb packaging/apt/pool/main/n/next-dm/next-dm_0.1.1_amd64.deb
+          cd packaging/apt
+          dpkg-scanpackages --arch amd64 pool/ > dists/stable/main/binary-amd64/Packages
+          gzip -k -f dists/stable/main/binary-amd64/Packages
+          cp dists/stable/main/binary-amd64/Packages Packages
+          cp dists/stable/main/binary-amd64/Packages.gz Packages.gz
+          
+          python3 - << 'EOF'
+          import os, hashlib
+          from datetime import datetime, timezone
+          dists_dir = "dists/stable"
+          date_str = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S UTC")
+          files = ["main/binary-amd64/Packages", "main/binary-amd64/Packages.gz"]
+          md5_lines, sha1_lines, sha256_lines = [], [], []
+          for rel_path in files:
+              full_path = os.path.join(dists_dir, rel_path)
+              if os.path.exists(full_path):
+                  size = os.path.getsize(full_path)
+                  with open(full_path, "rb") as f:
+                      data = f.read()
+                  md5_lines.append(f" {hashlib.md5(data).hexdigest()} {size} {rel_path}")
+                  sha1_lines.append(f" {hashlib.sha1(data).hexdigest()} {size} {rel_path}")
+                  sha256_lines.append(f" {hashlib.sha256(data).hexdigest()} {size} {rel_path}")
+          release_content = f"""Origin: NextDM
+          Label: NextDM Repository
+          Suite: stable
+          Codename: stable
+          Version: 0.1.1
+          Architectures: amd64
+          Components: main
+          Description: NextDM Official APT Repository for Linux Mint & Ubuntu
+          Date: {date_str}
+          MD5Sum:
+          {chr(10).join(md5_lines)}
+          SHA1:
+          {chr(10).join(sha1_lines)}
+          SHA256:
+          {chr(10).join(sha256_lines)}
+          """
+          with open(os.path.join(dists_dir, "Release"), "w") as f:
+              f.write(release_content)
+          with open("Release", "w") as f:
+              f.write(release_content)
+          EOF
+          cd ../..
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add packaging/apt
+          git commit -m "chore(ci): update APT repository with fresh Linux Mint 0.1.1 deb package [skip ci]" || true
+          git push origin HEAD:main || true
