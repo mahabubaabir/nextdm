@@ -13,17 +13,17 @@ pub enum HostRequest {
     Ping,
     AddDownload {
         url: String,
-        #[serde(default)]
+        #[serde(default, alias = "fileName")]
         filename: Option<String>,
         #[serde(default)]
         referrer: Option<String>,
         #[serde(default)]
         cookies: Option<String>,
-        #[serde(default)]
+        #[serde(default, alias = "userAgent")]
         user_agent: Option<String>,
         #[serde(default)]
         headers: std::collections::BTreeMap<String, String>,
-        #[serde(default)]
+        #[serde(default, alias = "isMedia")]
         is_media: bool,
     },
     ProbeMedia {
@@ -159,6 +159,19 @@ mod tests {
             request,
             HostRequest::AddDownload { ref url, .. } if url == "https://example.com/a.zip"
         ));
+
+        // Test camelCase fields from extension: isMedia, fileName, userAgent
+        let request: HostRequest = serde_json::from_str(
+            r#"{"type":"addDownload","url":"https://example.com/video.mp4","fileName":"test.mp4","isMedia":true}"#,
+        )
+        .unwrap();
+        match request {
+            HostRequest::AddDownload { is_media, filename, .. } => {
+                assert!(is_media);
+                assert_eq!(filename.as_deref(), Some("test.mp4"));
+            }
+            _ => panic!("expected AddDownload"),
+        }
 
         let request: HostRequest = serde_json::from_str(r#"{"type":"getVersion"}"#).unwrap();
         assert!(matches!(request, HostRequest::GetVersion));

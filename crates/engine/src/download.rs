@@ -402,6 +402,25 @@ async fn transfer_once(
         )));
     }
 
+    if range_start == 0 && written == 0 {
+        if let Some(ct) = response
+            .headers()
+            .get(CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+        {
+            let ct_lower = ct.to_ascii_lowercase();
+            if ct_lower.starts_with("text/html") || ct_lower.starts_with("application/xhtml+xml") {
+                let file_str = ctx.temp_path.to_string_lossy();
+                let clean_name = file_str.trim_end_matches(".part");
+                if is_media_filename(clean_name) {
+                    return Err(Error::Server(
+                        "remote server returned an HTML webpage (text/html) instead of media content. For streaming or embedded video, please use the NextDM Video Extractor.".into(),
+                    ));
+                }
+            }
+        }
+    }
+
     if ctx.resumable {
         if status != StatusCode::PARTIAL_CONTENT {
             return Err(Error::Server(
@@ -552,6 +571,26 @@ pub fn sanitize_file_name(name: &str) -> String {
         return "download".to_string();
     }
     cleaned
+}
+
+pub fn is_media_filename(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower.ends_with(".mp4")
+        || lower.ends_with(".mkv")
+        || lower.ends_with(".webm")
+        || lower.ends_with(".avi")
+        || lower.ends_with(".mov")
+        || lower.ends_with(".flv")
+        || lower.ends_with(".wmv")
+        || lower.ends_with(".ts")
+        || lower.ends_with(".m4v")
+        || lower.ends_with(".mp3")
+        || lower.ends_with(".m4a")
+        || lower.ends_with(".aac")
+        || lower.ends_with(".wav")
+        || lower.ends_with(".flac")
+        || lower.ends_with(".ogg")
+        || lower.ends_with(".opus")
 }
 
 fn extension_for_mime(content_type: &str) -> Option<&'static str> {

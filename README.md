@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mahabubaabir/nextdm/releases/latest"><img src="https://img.shields.io/badge/Release-v0.1.1-blue.svg?style=flat-square" alt="Release"></a>
+  <a href="https://github.com/mahabubaabir/nextdm/releases/latest"><img src="https://img.shields.io/badge/Release-v0.2.0-blue.svg?style=flat-square" alt="Release"></a>
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20Mint%20%7C%20Ubuntu-emerald.svg?style=flat-square" alt="Platform">
   <img src="https://img.shields.io/badge/License-GPL--3.0-orange.svg?style=flat-square" alt="License">
   <img src="https://img.shields.io/badge/Privacy-100%25%20Local-purple.svg?style=flat-square" alt="Privacy">
@@ -26,8 +26,8 @@ NextDM is a fast, native download manager built for Windows and Linux (Linux Min
 Choose the installer for your computer:
 
 ### 🪟 Windows (11 / 10 / 8 / 7)
-- 📦 **[Download Windows Setup Installer (.exe)](https://github.com/mahabubaabir/nextdm/releases/download/v0.1.1/NextDM_0.1.1_x64-setup.exe)** — *Recommended: 1-click installer with start menu & tray integration.*
-- 🚀 **[Download Windows Standalone Portable (.exe)](https://github.com/mahabubaabir/nextdm/releases/download/v0.1.1/NextDM_0.1.1_x64_portable.exe)** — *No installation needed, run directly on any Windows PC.*
+- 📦 **[Download Windows Setup Installer (.exe)](https://github.com/mahabubaabir/nextdm/releases/download/v0.2.0/NextDM_0.2.0_x64-setup.exe)** — *Recommended: 1-click installer with start menu & tray integration.*
+- 🚀 **[Download Windows Standalone Portable (.exe)](https://github.com/mahabubaabir/nextdm/releases/download/v0.2.0/NextDM_0.2.0_x64_portable.exe)** — *No installation needed, run directly on any Windows PC.*
 
 ### 🐧 Linux (Linux Mint / Ubuntu / Debian)
 - 🟢 **Install via Official APT Repository (Automatic Updates via Mint Update Manager):**
@@ -36,7 +36,7 @@ Choose the installer for your computer:
   sudo apt update
   sudo apt install next-dm
   ```
-- 📦 **[Direct Download NextDM 0.1.1 (.deb)](https://github.com/mahabubaabir/nextdm/releases/download/v0.1.1/NextDM_0.1.1_amd64.deb)** — *Install with `sudo dpkg -i NextDM_0.1.1_amd64.deb` or double-click to install.*
+- 📦 **[Direct Download NextDM 0.2.0 (.deb)](https://github.com/mahabubaabir/nextdm/releases/download/v0.2.0/NextDM_0.2.0_amd64.deb)** — *Install with `sudo dpkg -i NextDM_0.2.0_amd64.deb` or double-click to install.*
 
 📜 **[View Full Changelog & Release History](CHANGELOG.md)**
 

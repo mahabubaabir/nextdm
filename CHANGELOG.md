@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.0] — 2026-11-13
+
+### 🎬 Embedded Media Extraction & Engine Guard
+- **Deep DOM Video Inspection:** Extended the in-browser video grabber across both Chromium and Firefox extensions to detect embedded players from Wistia (`wistia_async_<id>`), Vimeo (`player.vimeo.com`), Loom, and YouTube iframes.
+- **Resource-Timing HLS/DASH Discovery:** Captured active `.m3u8` and `.mpd` streaming manifests dynamically from `performance.getEntriesByType("resource")` and browser `webRequest` network events so protected or blob-backed embedded players (like course platforms, Kajabi, Urban Forex) are immediately identified with their direct playable stream URLs.
+- **Engine Guard Against Downloading Webpages as Media:** Prevented servers from serving HTML error/login/player pages as `.mp4`, `.mkv`, etc. The download engine verifies content types on stream headers, immediately halts `text/html` responses when targeting media files, and prompts users with a 1-click transition to the Video Extractor.
+- **IPC Protocol Field Deserialization:** Fixed Serde camelCase/snake_case mapping for `isMedia` / `is_media`, `fileName` / `filename`, and `userAgent` / `user_agent` to ensure browser extension flags are never dropped.
+
+### 🐧 Linux Mint Update Manager (mintupdate) & APT Repository
+- **Native APT Repository Structure:** Standard Debian repository structure under `packaging/apt/` with `dists/stable/main/binary-amd64/Packages` and `Release` indices.
+- **Live Update Detection in Linux Mint Update Manager:** Linux Mint's native Update Manager (`mintupdate`) detects `next-dm` upgrades directly with package name, description, and version comparison.
+- **Debian Changelog Tracking:** Added standard Debian changelog integration (`changelog.Debian.gz`) inside the debian package for system package managers.
+
 ## [0.1.1] — 2026-11-07
 
 ### 🎬 Media Playback & Stream Extraction

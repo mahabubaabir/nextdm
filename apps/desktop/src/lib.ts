@@ -193,9 +193,14 @@ export function isDownloadableUrl(url: string): boolean {
 
 export function isMediaSiteUrl(url: string): boolean {
   if (!isProbablyUrl(url)) return false;
+  const lower = url.toLowerCase();
+  if (lower.includes(".m3u8") || lower.includes(".mpd") || lower.includes(".f4m") || lower.includes(".ism/")) {
+    return true;
+  }
   try {
     const parsed = new URL(url);
     const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname.toLowerCase();
     return (
       host.includes("youtube.com") ||
       host.includes("youtu.be") ||
@@ -209,7 +214,15 @@ export function isMediaSiteUrl(url: string): boolean {
       host.includes("dailymotion.com") ||
       host.includes("twitch.tv") ||
       host.includes("bilibili.com") ||
-      host.includes("soundcloud.com")
+      host.includes("soundcloud.com") ||
+      host.includes("rumble.com") ||
+      host.includes("streamtape.com") ||
+      host.includes("wistia.com") ||
+      host.includes("wistia.net") ||
+      host.includes("loom.com") ||
+      host.includes("bitchute.com") ||
+      path.includes("/embed/") ||
+      path.includes("/iframe/")
     );
   } catch {
     return false;

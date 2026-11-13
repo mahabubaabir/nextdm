@@ -162,6 +162,7 @@ fn is_media_site_url(url: &str) -> bool {
         || lower.contains("youtube.com/watch")
         || lower.contains("youtube.com/shorts")
         || lower.contains("youtube.com/live")
+        || lower.contains("youtube.com/embed")
         || lower.contains("youtu.be/")
         || lower.contains("facebook.com/watch")
         || lower.contains("facebook.com/reel")
@@ -174,12 +175,20 @@ fn is_media_site_url(url: &str) -> bool {
         || (lower.contains("twitter.com/") && lower.contains("/status/"))
         || (lower.contains("x.com/") && lower.contains("/status/"))
         || lower.contains("vimeo.com/")
+        || lower.contains("player.vimeo.com")
         || lower.contains("dailymotion.com/video")
         || lower.contains("twitch.tv/videos")
         || lower.contains("bilibili.com/video")
         || lower.contains("soundcloud.com/")
         || lower.contains("rumble.com/")
         || lower.contains("streamtape.com/")
+        || lower.contains("wistia.com")
+        || lower.contains("wistia.net")
+        || lower.contains("fast.wistia")
+        || lower.contains("loom.com/")
+        || lower.contains("jwplatform.com")
+        || lower.contains("kaltura.com")
+        || lower.contains("bitchute.com")
 }
 
 async fn dispatch(app: &AppHandle, engine: &Engine, request: HostRequest) -> HostResponse {

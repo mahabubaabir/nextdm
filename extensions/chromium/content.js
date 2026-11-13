@@ -84,39 +84,9 @@
       const textSpan = badge.querySelector(".nextdm-badge-text");
       if (textSpan) textSpan.textContent = "Opening NextDM...";
 
-      // Determine best media target
+      // Determine best media target using deep inspection
       const pageUrl = window.location.href;
-      const directSrc = targetVideo.currentSrc || targetVideo.src || "";
-
-      // Check if directSrc is unusable directly (blob:, data:, or fragmented transport stream chunk)
-      const isBlobOrData = directSrc.startsWith("blob:") || directSrc.startsWith("data:");
-      const isChunk =
-        directSrc.includes(".ts") ||
-        directSrc.includes(".m4s") ||
-        directSrc.includes("/segment") ||
-        directSrc.includes("range=");
-
-      const isKnownMediaSite =
-        location.hostname.includes("youtube.com") ||
-        location.hostname.includes("youtu.be") ||
-        location.hostname.includes("facebook.com") ||
-        location.hostname.includes("fb.watch") ||
-        location.hostname.includes("instagram.com") ||
-        location.hostname.includes("twitter.com") ||
-        location.hostname.includes("x.com") ||
-        location.hostname.includes("tiktok.com") ||
-        location.hostname.includes("vimeo.com") ||
-        location.hostname.includes("dailymotion.com") ||
-        location.hostname.includes("bilibili.com") ||
-        location.hostname.includes("reddit.com") ||
-        location.hostname.includes("twitch.tv");
-
-      // If it's a known media site, or if directSrc is a blob or chunk,
-      // we pass pageUrl so yt-dlp's extractors can discover the complete high-res stream!
-      let targetUrl = pageUrl;
-      if (!isKnownMediaSite && directSrc && !isBlobOrData && !isChunk) {
-        targetUrl = directSrc;
-      }
+      const targetUrl = resolveVideoMediaTarget(targetVideo);
 
       chrome.runtime.sendMessage({
         type: "nextdm_grab_media",
@@ -132,6 +102,134 @@
     });
 
     return badge;
+  }
+
+  function resolveVideoMediaTarget(video) {
+    const pageUrl = window.location.href;
+    const directSrc = video.currentSrc || video.src || "";
+    const isBlobOrData = directSrc.startsWith("blob:") || directSrc.startsWith("data:");
+    const isChunk =
+      directSrc.includes(".ts") ||
+      directSrc.includes(".m4s") ||
+      directSrc.includes("/segment") ||
+      directSrc.includes("range=");
+
+    // 1. Direct clean video URL on video element
+    if (directSrc && !isBlobOrData && !isChunk) {
+      return directSrc;
+    }
+
+    // 2. Check <source> tags inside <video>
+    const sources = Array.from(video.querySelectorAll("source"));
+    for (const s of sources) {
+      const sSrc = s.src || s.getAttribute("data-src") || "";
+      if (sSrc && !sSrc.startsWith("blob:") && !sSrc.startsWith("data:") && !sSrc.includes(".ts")) {
+        return sSrc;
+      }
+    }
+
+    // 3. Wistia Video Embed Detection (e.g. Kajabi, Teachable, UrbanForex, course portals)
+    try {
+      const wistiaElem =
+        video.closest(".wistia_embed, [class*='wistia_async_'], [id^='wistia_']") ||
+        document.querySelector(".wistia_embed, [class*='wistia_async_'], [id^='wistia_']");
+      if (wistiaElem) {
+        const classMatch = wistiaElem.className && wistiaElem.className.match(/wistia_async_([a-zA-Z0-9]+)/);
+        if (classMatch && classMatch[1]) {
+          return `https://fast.wistia.net/embed/iframe/${classMatch[1]}`;
+        }
+        const idMatch = wistiaElem.id && wistiaElem.id.match(/^wistia_([a-zA-Z0-9]+)$/);
+        if (idMatch && idMatch[1]) {
+          return `https://fast.wistia.net/embed/iframe/${idMatch[1]}`;
+        }
+      }
+      const htmlMatch =
+        document.documentElement.innerHTML.match(/wistia_async_([a-zA-Z0-9]+)/) ||
+        document.documentElement.innerHTML.match(/fast\.wistia\.(?:net|com)\/embed\/(?:iframe|medias)\/([a-zA-Z0-9]+)/);
+      if (htmlMatch && htmlMatch[1]) {
+        return `https://fast.wistia.net/embed/iframe/${htmlMatch[1]}`;
+      }
+    } catch (e) {}
+
+    // 4. Vimeo Embed Detection
+    try {
+      const vimeoIframe =
+        video.closest("iframe[src*='vimeo.com']") ||
+        document.querySelector("iframe[src*='player.vimeo.com/video/'], iframe[src*='vimeo.com']");
+      if (vimeoIframe && vimeoIframe.src) {
+        return vimeoIframe.src;
+      }
+      const vimeoElem = video.closest("[data-vimeo-id]") || document.querySelector("[data-vimeo-id]");
+      if (vimeoElem && vimeoElem.dataset && vimeoElem.dataset.vimeoId) {
+        return `https://player.vimeo.com/video/${vimeoElem.dataset.vimeoId}`;
+      }
+    } catch (e) {}
+
+    // 5. YouTube Embed Detection
+    try {
+      const ytIframe =
+        video.closest("iframe[src*='youtube.com'], iframe[src*='youtube-nocookie.com']") ||
+        document.querySelector("iframe[src*='youtube.com/embed/'], iframe[src*='youtube-nocookie.com/embed/']");
+      if (ytIframe && ytIframe.src) {
+        const match = ytIframe.src.match(/\/embed\/([a-zA-Z0-9_-]{11})/);
+        if (match && match[1]) {
+          return `https://www.youtube.com/watch?v=${match[1]}`;
+        }
+        return ytIframe.src;
+      }
+    } catch (e) {}
+
+    // 6. Generic Video Iframes (Dailymotion, Loom, Rumble, Streamtape, etc.)
+    try {
+      const iframes = Array.from(document.querySelectorAll("iframe"));
+      for (const f of iframes) {
+        const s = f.src || "";
+        if (
+          s.includes("dailymotion.com/embed") ||
+          s.includes("loom.com/embed") ||
+          s.includes("rumble.com/embed") ||
+          s.includes("streamtape.com/e/") ||
+          s.includes("/embed/") ||
+          s.includes("/player/")
+        ) {
+          return s;
+        }
+      }
+    } catch (e) {}
+
+    // 7. Check browser Performance Resource Timing for active .m3u8 or .mpd manifests
+    try {
+      const resources = window.performance.getEntriesByType("resource");
+      for (let i = resources.length - 1; i >= 0; i--) {
+        const name = resources[i].name || "";
+        if (name.includes(".m3u8") || name.includes(".mpd")) {
+          return name;
+        }
+      }
+    } catch (e) {}
+
+    // 8. Known media platform where yt-dlp supports page URL directly
+    const isKnownMediaSite =
+      location.hostname.includes("youtube.com") ||
+      location.hostname.includes("youtu.be") ||
+      location.hostname.includes("facebook.com") ||
+      location.hostname.includes("fb.watch") ||
+      location.hostname.includes("instagram.com") ||
+      location.hostname.includes("twitter.com") ||
+      location.hostname.includes("x.com") ||
+      location.hostname.includes("tiktok.com") ||
+      location.hostname.includes("vimeo.com") ||
+      location.hostname.includes("dailymotion.com") ||
+      location.hostname.includes("bilibili.com") ||
+      location.hostname.includes("reddit.com") ||
+      location.hostname.includes("twitch.tv") ||
+      location.hostname.includes("rumble.com");
+    if (isKnownMediaSite) {
+      return pageUrl;
+    }
+
+    // 9. Fallback to pageUrl
+    return pageUrl;
   }
 
   function attachToVideo(video) {

@@ -181,6 +181,17 @@ impl Engine {
             probe.content_type.as_deref(),
         );
 
+        if let Some(ct) = &probe.content_type {
+            let ct_lower = ct.to_ascii_lowercase();
+            if (ct_lower.starts_with("text/html") || ct_lower.starts_with("application/xhtml+xml"))
+                && download::is_media_filename(&suggested)
+            {
+                return Err(Error::Server(
+                    "remote server returned an HTML webpage (text/html) instead of media content. For streaming or embedded video, please use the NextDM Video Extractor.".into(),
+                ));
+            }
+        }
+
         let category = spec
             .category
             .clone()

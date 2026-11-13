@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "NextDM Integration",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Hand downloads from your browser to NextDM.",
   "minimum_chrome_version": "109",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAzuN2Rl7lW/DyVeZzAzCy2pcAfKa4/lm5+x9xfOYalMenlvuy08LfsMiUet4iznMZudiYFHHJ7sLqyo+89mrd4xxQVVL3hQqH79A1Q4qY0RPmzStYnWL1k8u1lobB6gg7ibFqT+VTGZdzUB2MrI1c2s2/FjI4pg4FWocV3TDAxwyvTwkY233tiVioDt+4ycbwTcsFn0LMllMR5yafgpPx9yxA/TBq3v7Rhwcm6McvRaIIayYaH2dlWqEKnGAezasMNQlmGQbIhrcIfZNl1/tRWN87gZihY/3eHhNtpvir8h45WYoUP0Z+vlZNrcGiw0Bh82hvtzfotjVWFfj599ALRQIDAQAB",
@@ -11,7 +11,8 @@
     "nativeMessaging",
     "storage",
     "contextMenus",
-    "tabs"
+    "tabs",
+    "webRequest"
   ],
   "host_permissions": ["<all_urls>"],
   "content_scripts": [

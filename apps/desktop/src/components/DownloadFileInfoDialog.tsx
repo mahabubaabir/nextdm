@@ -169,7 +169,42 @@ export function DownloadFileInfoDialog({
       }
     >
       <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-        {isMediaSiteUrl(url) && (
+        {probeResult?.contentType?.toLowerCase().startsWith("text/html") && /\.(mp4|mkv|webm|avi|mov|flv|wmv|ts|m4v|mp3|m4a|aac|wav|flac|ogg)$/i.test(fileName) && (
+          <div
+            style={{
+              padding: "10px 12px",
+              background: "rgba(245, 158, 11, 0.15)",
+              border: "1px solid rgba(245, 158, 11, 0.4)",
+              borderRadius: "8px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "10px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "12px", color: "#f59e0b" }}>
+              <Icon name="warning" size={16} />
+              <span>
+                <strong>Webpage Detected:</strong> The server returned an HTML webpage instead of a direct media file. Use Video Extractor to extract and download the video stream.
+              </span>
+            </div>
+            {onOpenMediaExtractor && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ padding: "4px 10px", fontSize: "12px", whiteSpace: "nowrap" }}
+                onClick={() => {
+                  onOpenMediaExtractor(url.trim());
+                  onClose();
+                }}
+              >
+                Switch to Extractor
+              </button>
+            )}
+          </div>
+        )}
+
+        {isMediaSiteUrl(url) && !probeResult?.contentType?.toLowerCase().startsWith("text/html") && (
           <div
             style={{
               padding: "10px 12px",

@@ -112,7 +112,7 @@ function App() {
   const [clipboardDetectedUrl, setClipboardDetectedUrl] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; download: DownloadInfo } | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [engineVersion, setEngineVersion] = useState("0.1.1");
+  const [engineVersion, setEngineVersion] = useState("0.2.0");
 
   const lastSelected = useRef<string | null>(null);
   const settingsRef = useRef(settings);
@@ -285,7 +285,7 @@ function App() {
         if (!res.ok) return;
         const data = await res.json();
         const tag = (data.tag_name || "").replace(/^v/, "");
-        const current = "0.1.1";
+        const current = "0.2.0";
         const tagParts = tag.split(".").map(Number);
         const curParts = current.split(".").map(Number);
         let isNewer = false;

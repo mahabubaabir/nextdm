@@ -664,7 +664,7 @@ export function OptionsDialog({
 
           {tab === "advanced" ? (
             <section className="option-section">
-              <AboutView engineVersion="0.1.1" onOpenUpdateManager={onOpenUpdateManager} />
+              <AboutView engineVersion="0.2.0" onOpenUpdateManager={onOpenUpdateManager} />
             </section>
           ) : null}
         </div>

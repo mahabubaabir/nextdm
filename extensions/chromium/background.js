@@ -7,6 +7,34 @@
 const HOST_NAME = "com.nextdm.host";
 const OWN_EXTENSION_ID = "ciljeaclhfhipchfaocjmoanpbacibli";
 const reopening = new Set();
+const tabMediaStreams = new Map();
+
+if (typeof chrome !== "undefined" && chrome.webRequest && chrome.webRequest.onBeforeRequest) {
+  try {
+    chrome.webRequest.onBeforeRequest.addListener(
+      (details) => {
+        if (!details || !details.url || details.tabId === undefined || details.tabId < 0) return;
+        const lower = details.url.toLowerCase();
+        if (
+          lower.includes(".m3u8") ||
+          lower.includes(".mpd") ||
+          lower.includes("fast.wistia.net/embed/iframe") ||
+          lower.includes("fast.wistia.com/embed/medias")
+        ) {
+          tabMediaStreams.set(details.tabId, details.url);
+        }
+      },
+      { urls: ["<all_urls>"] }
+    );
+    if (chrome.tabs && chrome.tabs.onRemoved) {
+      chrome.tabs.onRemoved.addListener((tabId) => {
+        tabMediaStreams.delete(tabId);
+      });
+    }
+  } catch (e) {
+    /* webRequest fallback */
+  }
+}
 
 function loadSettings() {
   return new Promise((resolve) => {
@@ -94,7 +122,17 @@ function isMediaSite(url) {
     lower.includes("dailymotion.com") ||
     lower.includes("twitch.tv") ||
     lower.includes("bilibili.com") ||
-    lower.includes("soundcloud.com")
+    lower.includes("soundcloud.com") ||
+    lower.includes("wistia.com") ||
+    lower.includes("wistia.net") ||
+    lower.includes("fast.wistia") ||
+    lower.includes("loom.com") ||
+    lower.includes("rumble.com") ||
+    lower.includes("streamtape.com") ||
+    lower.includes(".m3u8") ||
+    lower.includes(".mpd") ||
+    lower.includes(".f4m") ||
+    lower.includes(".ism/")
   );
 }
 
@@ -113,10 +151,12 @@ async function handoff({ url, filename, referrer, isMedia }) {
     type: "addDownload",
     url,
     filename: filename || null,
+    fileName: filename || null,
     referrer: pageUrl,
     cookies,
     headers: {},
     isMedia: isMediaDownload,
+    is_media: isMediaDownload,
   });
   return true;
 }
@@ -207,8 +247,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "nextdm_grab_media") {
+    let finalUrl = message.url;
+    if (finalUrl === message.pageUrl && sender && sender.tab && sender.tab.id !== undefined) {
+      const captured = tabMediaStreams.get(sender.tab.id);
+      if (captured) {
+        finalUrl = captured;
+      }
+    }
+
     handoff({
-      url: message.url,
+      url: finalUrl,
       referrer: message.pageUrl,
       filename: message.title ? `${message.title.replace(/[\\/:*?"<>|]/g, "_")}.mp4` : null,
       isMedia: true,

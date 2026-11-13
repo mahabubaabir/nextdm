@@ -43,7 +43,7 @@ export function UpdateManagerDialog({
       description: "Next-gen segmented download manager core & UI",
       type: "package",
       currentVersion: currentVersion,
-      newVersion: "0.1.1",
+      newVersion: "0.2.0",
       size: "14.2 MB",
       selected: true,
     },
@@ -53,7 +53,7 @@ export function UpdateManagerDialog({
       description: "Native messaging integration companion for Firefox & Chromium",
       type: "web",
       currentVersion: currentVersion,
-      newVersion: "0.1.1",
+      newVersion: "0.2.0",
       size: "2.1 MB",
       selected: true,
     },
@@ -68,7 +68,7 @@ export function UpdateManagerDialog({
       });
       if (res.ok) {
         const data = await res.json();
-        const tag = (data.tag_name || "").replace(/^v/, "") || "0.1.1";
+        const tag = (data.tag_name || "").replace(/^v/, "") || "0.2.0";
         setLatestTag(tag);
         setReleaseUrl(data.html_url || "https://github.com/mahabubaabir/nextdm/releases");
         if (data.body) {
@@ -116,12 +116,12 @@ export function UpdateManagerDialog({
     setIsInstalling(true);
     setInstallStatus("Launching Linux Mint Package Installer...");
     try {
-      await invoke("launch_package_installer", { version: latestTag || "0.1.1" });
+      await invoke("launch_package_installer", { version: latestTag || "0.2.0" });
       setInstallStatus("Package Installer opened! Follow system prompt to complete installation.");
       setIsInstalling(false);
     } catch {
       // Fallback
-      const debUrl = releaseUrl || `https://github.com/mahabubaabir/nextdm/releases/download/v${latestTag || "0.1.1"}/NextDM_${latestTag || "0.1.1"}_amd64.deb`;
+      const debUrl = releaseUrl || `https://github.com/mahabubaabir/nextdm/releases/download/v${latestTag || "0.2.0"}/NextDM_${latestTag || "0.2.0"}_amd64.deb`;
       await openUrl(debUrl);
       setInstallStatus("Package downloaded. Open it to install.");
       setIsInstalling(false);
@@ -129,7 +129,17 @@ export function UpdateManagerDialog({
   };
 
   const defaultChangelog = `
-## NextDM v${latestTag || "0.1.1"} (2026-11-07)
+## NextDM v${latestTag || "0.2.0"} (2026-11-13)
+
+### 🎬 Embedded Media Extraction & Download Engine Guard
+- Deep DOM embedded video detection for Wistia, Vimeo, Loom, YouTube iframes, and active HLS/DASH streams.
+- Guard against saving HTML error/login/player pages as media files: NextDM rejects text/html responses for video filenames and offers seamless 1-click transition to Video Extractor.
+- Dual-cased JSON IPC protocol serialization for reliable browser extension communication.
+- Upgraded Chromium and Firefox extensions with resource-timing sniffing and webRequest listeners.
+
+### 🐧 Linux Mint Update Manager Integration
+- Full APT repository support compatible with Linux Mint Update Manager (mintupdate).
+- Direct apt-get / apt install --only-upgrade integration with package tracking and verification.
 
 ### 🎬 Media Playback & Stream Extraction
 - Fixed unplayable video downloads: If an embedded web player uses blob: URLs or fragmented .ts chunks, NextDM extracts high-quality streams directly from the webpage URL.
@@ -564,17 +574,17 @@ export function UpdateManagerDialog({
                     <tr style={{ borderBottom: "1px solid #2a2a2a" }}>
                       <td style={{ padding: "6px 8px", fontWeight: 600 }}>nextdm-desktop</td>
                       <td style={{ padding: "6px 8px", color: "#888" }}>{currentVersion}</td>
-                      <td style={{ padding: "6px 8px", color: "#87c375" }}>{latestTag || "0.1.1"}</td>
+                      <td style={{ padding: "6px 8px", color: "#87c375" }}>{latestTag || "0.2.0"}</td>
                     </tr>
                     <tr style={{ borderBottom: "1px solid #2a2a2a" }}>
                       <td style={{ padding: "6px 8px", fontWeight: 600 }}>nextdm-browser-host</td>
                       <td style={{ padding: "6px 8px", color: "#888" }}>{currentVersion}</td>
-                      <td style={{ padding: "6px 8px", color: "#87c375" }}>{latestTag || "0.1.1"}</td>
+                      <td style={{ padding: "6px 8px", color: "#87c375" }}>{latestTag || "0.2.0"}</td>
                     </tr>
                     <tr>
                       <td style={{ padding: "6px 8px", fontWeight: 600 }}>nextdm-media</td>
                       <td style={{ padding: "6px 8px", color: "#888" }}>{currentVersion}</td>
-                      <td style={{ padding: "6px 8px", color: "#87c375" }}>{latestTag || "0.1.1"}</td>
+                      <td style={{ padding: "6px 8px", color: "#87c375" }}>{latestTag || "0.2.0"}</td>
                     </tr>
                   </tbody>
                 </table>

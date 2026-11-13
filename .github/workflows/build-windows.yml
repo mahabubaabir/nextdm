@@ -54,7 +54,8 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist-windows
-          cp target/release/nextdm-desktop.exe dist-windows/NextDM_0.1.1_x64_portable.exe
+          VERSION=$(grep '^version = ' Cargo.toml | head -n 1 | cut -d '"' -f 2)
+          cp target/release/nextdm-desktop.exe "dist-windows/NextDM_${VERSION}_x64_portable.exe"
           cp target/release/nextdm-host.exe dist-windows/nextdm-host.exe
           if [ -f apps/desktop/src-tauri/bin/yt-dlp.exe ]; then
             cp apps/desktop/src-tauri/bin/yt-dlp.exe dist-windows/yt-dlp.exe
@@ -76,9 +77,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
+          VERSION=$(grep '^version = ' Cargo.toml | head -n 1 | cut -d '"' -f 2)
           TAG="${GITHUB_REF_NAME}"
           if [ -z "$TAG" ] || [ "$TAG" = "main" ]; then
-            TAG="v0.1.1"
+            TAG="v${VERSION}"
           fi
           gh release view "$TAG" || gh release create "$TAG" --title "NextDM $TAG" --notes "NextDM Release $TAG - See CHANGELOG.md for details." || true
           for file in dist-windows/*; do
