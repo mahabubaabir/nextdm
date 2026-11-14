@@ -486,6 +486,7 @@ function App() {
         invoke("set_max_connections", { connections: next.maxConnections }),
         invoke("set_speed_limit", { bytesPerSecond: next.speedLimit }),
         invoke("set_default_dir", { path: next.defaultDir }),
+        invoke("set_setting", { key: "category_routing", value: next.categoryRouting }),
       ]);
       notify("success", "Options saved.");
     } catch (error) {

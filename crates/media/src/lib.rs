@@ -74,23 +74,6 @@ pub fn yt_dlp_path() -> String {
         }
     }
 
-    // Check sibling of current executable (portable / installed bundle)
-    if let Ok(current) = std::env::current_exe() {
-        if let Some(parent) = current.parent() {
-            let names = if cfg!(windows) {
-                &["yt-dlp.exe", "yt_dlp.exe", "bin/yt-dlp.exe"][..]
-            } else {
-                &["yt-dlp", "bin/yt-dlp"][..]
-            };
-            for name in names {
-                let candidate = parent.join(name);
-                if candidate.is_file() {
-                    return candidate.to_string_lossy().to_string();
-                }
-            }
-        }
-    }
-
     #[cfg(windows)]
     {
         if let Some(local) = std::env::var_os("LOCALAPPDATA").map(PathBuf::from) {
@@ -109,6 +92,7 @@ pub fn yt_dlp_path() -> String {
 
     #[cfg(unix)]
     {
+        // 1. Prefer user-managed / in-app updated versions over outdated distro packages
         if let Some(home) = home_dir() {
             let candidate = home.join(".local/share/nextdm/bin/yt-dlp");
             if candidate.is_file() {
@@ -123,6 +107,31 @@ pub fn yt_dlp_path() -> String {
         if usr_local.is_file() {
             return usr_local.to_string_lossy().to_string();
         }
+    }
+
+    // 2. Check sibling of current executable (portable bundle, skipping /usr/bin)
+    if let Ok(current) = std::env::current_exe() {
+        if let Some(parent) = current.parent() {
+            let is_system_dir = parent == Path::new("/usr/bin") || parent == Path::new("/bin");
+            if !is_system_dir {
+                let names = if cfg!(windows) {
+                    &["yt-dlp.exe", "yt_dlp.exe", "bin/yt-dlp.exe"][..]
+                } else {
+                    &["yt-dlp", "bin/yt-dlp"][..]
+                };
+                for name in names {
+                    let candidate = parent.join(name);
+                    if candidate.is_file() {
+                        return candidate.to_string_lossy().to_string();
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    {
+        // 3. System package manager fallback
         let usr_bin = Path::new("/usr/bin/yt-dlp");
         if usr_bin.is_file() {
             return usr_bin.to_string_lossy().to_string();
@@ -141,23 +150,6 @@ pub fn ffmpeg_path() -> Option<String> {
     if let Ok(path) = std::env::var("NEXTDM_FFMPEG") {
         if !path.trim().is_empty() {
             return Some(path);
-        }
-    }
-
-    // Check sibling of current executable
-    if let Ok(current) = std::env::current_exe() {
-        if let Some(parent) = current.parent() {
-            let names = if cfg!(windows) {
-                &["ffmpeg.exe", "bin/ffmpeg.exe"][..]
-            } else {
-                &["ffmpeg", "bin/ffmpeg"][..]
-            };
-            for name in names {
-                let candidate = parent.join(name);
-                if candidate.is_file() {
-                    return Some(candidate.to_string_lossy().to_string());
-                }
-            }
         }
     }
 
@@ -193,6 +185,30 @@ pub fn ffmpeg_path() -> Option<String> {
         if usr_local.is_file() {
             return Some(usr_local.to_string_lossy().to_string());
         }
+    }
+
+    // Check sibling of current executable (portable bundle, skipping /usr/bin)
+    if let Ok(current) = std::env::current_exe() {
+        if let Some(parent) = current.parent() {
+            let is_system_dir = parent == Path::new("/usr/bin") || parent == Path::new("/bin");
+            if !is_system_dir {
+                let names = if cfg!(windows) {
+                    &["ffmpeg.exe", "bin/ffmpeg.exe"][..]
+                } else {
+                    &["ffmpeg", "bin/ffmpeg"][..]
+                };
+                for name in names {
+                    let candidate = parent.join(name);
+                    if candidate.is_file() {
+                        return Some(candidate.to_string_lossy().to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    {
         let usr_bin = Path::new("/usr/bin/ffmpeg");
         if usr_bin.is_file() {
             return Some(usr_bin.to_string_lossy().to_string());
@@ -276,9 +292,6 @@ pub fn configure_command(cmd: &mut tokio::process::Command) {
     if let Some(ffmpeg) = ffmpeg_path() {
         cmd.arg("--ffmpeg-location").arg(ffmpeg);
     }
-    if let Some(node) = node_path() {
-        cmd.arg("--js-runtimes").arg(format!("node:{node}"));
-    }
 }
 
 /// Best-effort check that the sidecar is available.
@@ -343,4 +356,39 @@ pub async fn install_yt_dlp() -> Result<String, String> {
         .map_err(|e| format!("Failed to save yt-dlp binary to target path: {e}"))?;
 
     Ok(format!("yt-dlp successfully installed to {}", target_path.display()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_yt_dlp_path_prefers_user_bin() {
+        let path = yt_dlp_path();
+        println!("Resolved yt-dlp path: {}", path);
+        assert!(!path.is_empty());
+        #[cfg(unix)]
+        {
+            let home = home_dir().unwrap();
+            let local_bin = home.join(".local/bin/yt-dlp");
+            if local_bin.is_file() {
+                assert_eq!(path, local_bin.to_string_lossy().to_string());
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_yt_dlp_probe_youtube() {
+        let res = ytdlp::probe("https://www.youtube.com/watch?v=dQw4w9WgXcQ", None).await;
+        match res {
+            Ok(info) => {
+                println!("Probed title: {}", info.title);
+                assert!(!info.title.is_empty());
+                assert!(!info.formats.is_empty());
+            }
+            Err(e) => {
+                panic!("Probe failed: {:?}", e);
+            }
+        }
+    }
 }

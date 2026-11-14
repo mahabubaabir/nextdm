@@ -5,7 +5,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { Modal } from "./Modal";
 import { Icon, type IconName } from "./Icons";
 import { AboutView } from "./AboutView";
-import { cx } from "../lib";
+import { cx, DEFAULT_SETTINGS } from "../lib";
 import type { Settings } from "../types";
 
 type Tab = "general" | "downloads" | "connections" | "speed" | "media" | "browser" | "backup" | "advanced";
@@ -36,9 +36,10 @@ export function OptionsDialog({
   onPreviewTheme: (theme: Settings["theme"]) => void;
   onOpenUpdateManager?: () => void;
 }) {
+  const safeSettings: Settings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
   const [tab, setTab] = useState<Tab>("general");
-  const [draft, setDraft] = useState<Settings>(settings);
-  const [speedKb, setSpeedKb] = useState(Math.round(settings.speedLimit / 1024));
+  const [draft, setDraft] = useState<Settings>(safeSettings);
+  const [speedKb, setSpeedKb] = useState(Math.round((safeSettings.speedLimit || 0) / 1024));
   const [ytDlp, setYtDlp] = useState<boolean | null>(null);
   const [checkingMedia, setCheckingMedia] = useState(false);
   const [browserBusy, setBrowserBusy] = useState(false);
@@ -47,8 +48,9 @@ export function OptionsDialog({
 
   useEffect(() => {
     if (!open) return;
-    setDraft(settings);
-    setSpeedKb(Math.round(settings.speedLimit / 1024));
+    const currentSettings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
+    setDraft(currentSettings);
+    setSpeedKb(Math.round((currentSettings.speedLimit || 0) / 1024));
     setTab("general");
     setBrowserResult("");
     setYtDlp(null);
@@ -58,7 +60,7 @@ export function OptionsDialog({
     // Intentionally reset only when the dialog opens; theme previews update
     // the parent settings object while the user is editing.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, settings]);
 
   useEffect(() => {
     if (tab === "browser") {
@@ -167,7 +169,7 @@ export function OptionsDialog({
   };
 
   const save = () => {
-    onSave({ ...draft, speedLimit: Math.max(0, speedKb) * 1024 });
+    onSave({ ...draft, speedLimit: Math.max(0, speedKb || 0) * 1024 });
   };
 
   return (
@@ -247,7 +249,11 @@ export function OptionsDialog({
                   className="secondary-button compact"
                   onClick={async () => {
                     try {
-                      const selected = await openDialog({ directory: true, multiple: false, defaultPath: draft.defaultDir });
+                      const selected = await openDialog({
+                        directory: true,
+                        multiple: false,
+                        defaultPath: draft.defaultDir && draft.defaultDir.trim() ? draft.defaultDir : undefined,
+                      });
                       if (typeof selected === "string") update("defaultDir", selected);
                     } catch {
                       /* cancelled */
