@@ -262,29 +262,57 @@ fn open_path(path: String) -> Result<(), String> {
 #[tauri::command]
 fn reveal_path(path: String) -> Result<(), String> {
     let p = PathBuf::from(&path);
-    let canonical = p.canonicalize().unwrap_or(p.clone());
-    let uri = format!("file://{}", canonical.to_string_lossy());
-
-    // Try standard DBus org.freedesktop.FileManager1.ShowItems (works in Nemo on Linux Mint)
-    let dbus_result = std::process::Command::new("dbus-send")
-        .args([
-            "--session",
-            "--dest=org.freedesktop.FileManager1",
-            "--type=method_call",
-            "/org/freedesktop/FileManager1",
-            "org.freedesktop.FileManager1.ShowItems",
-            &format!("array:string:\"{}\"", uri),
-            "string:\"\"",
-        ])
-        .output();
-    if let Ok(output) = dbus_result {
-        if output.status.success() {
-            return Ok(());
-        }
+    if p.is_dir() {
+        return open_path(path);
     }
 
-    let directory = p.parent().unwrap_or(&p);
-    open_path(directory.to_string_lossy().to_string())
+    #[cfg(target_os = "windows")]
+    {
+        let _ = std::process::Command::new("explorer")
+            .arg(format!("/select,\"{}\"", p.display()))
+            .spawn();
+        return Ok(());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open")
+            .arg("-R")
+            .arg(&p)
+            .spawn();
+        return Ok(());
+    }
+
+    #[cfg(unix)]
+    {
+        let canonical = p.canonicalize().unwrap_or(p.clone());
+        if let Ok(file_url) = url::Url::from_file_path(&canonical) {
+            let uri = file_url.to_string();
+            // Standard DBus org.freedesktop.FileManager1.ShowItems (Nemo, Nautilus, Dolphin, Thunar)
+            // Note: dbus-send string arguments must NOT have enclosing quotes, and startup-id is empty "string:".
+            let dbus_result = std::process::Command::new("dbus-send")
+                .args([
+                    "--session",
+                    "--dest=org.freedesktop.FileManager1",
+                    "--type=method_call",
+                    "/org/freedesktop/FileManager1",
+                    "org.freedesktop.FileManager1.ShowItems",
+                    &format!("array:string:{}", uri),
+                    "string:",
+                ])
+                .output();
+
+            if let Ok(output) = dbus_result {
+                if output.status.success() {
+                    return Ok(());
+                }
+            }
+        }
+
+        // Fallback: open parent folder directly
+        let directory = p.parent().unwrap_or(&p);
+        open_path(directory.to_string_lossy().to_string())
+    }
 }
 
 #[tauri::command]
@@ -310,8 +338,8 @@ async fn yt_dlp_available() -> bool {
 }
 
 #[tauri::command]
-async fn media_probe(url: String) -> Result<MediaInfo, String> {
-    ytdlp::probe(&url).await.map_err(error_string)
+async fn media_probe(url: String, cookies: Option<String>) -> Result<MediaInfo, String> {
+    ytdlp::probe(&url, cookies.as_deref()).await.map_err(error_string)
 }
 
 #[tauri::command]
@@ -323,6 +351,7 @@ async fn media_download(
     directory: Option<String>,
     file_stem: Option<String>,
     expected_size: Option<u64>,
+    cookies: Option<String>,
 ) -> Result<DownloadInfo, String> {
     let directory = directory
         .map(PathBuf::from)
@@ -348,6 +377,7 @@ async fn media_download(
     let engine = state.engine.clone();
     let app_handle = app.clone();
     let target_url = url.clone();
+    let download_cookies = cookies;
 
     // 2. Spawn the background download with live progress streaming
     tauri::async_runtime::spawn(async move {
@@ -362,6 +392,7 @@ async fn media_download(
             format_id.as_deref(),
             &directory,
             file_stem.as_deref(),
+            download_cookies.as_deref(),
             progress_cb,
         )
         .await

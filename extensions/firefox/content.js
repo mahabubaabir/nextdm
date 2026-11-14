@@ -104,6 +104,106 @@
     return badge;
   }
 
+  function findFacebookVideoTarget(video) {
+    if (
+      location.pathname.includes("/watch") ||
+      location.pathname.includes("/reel/") ||
+      location.pathname.includes("/videos/") ||
+      location.search.includes("v=")
+    ) {
+      return window.location.href;
+    }
+    const container =
+      video.closest('[role="article"]') ||
+      video.closest('[data-pagelet*="FeedUnit"]') ||
+      video.closest('.userContentWrapper') ||
+      video.closest('div[data-visualcompletion]') ||
+      video.parentElement;
+
+    if (container) {
+      const links = Array.from(container.querySelectorAll("a[href]"));
+      for (const a of links) {
+        const href = a.getAttribute("href") || "";
+        if (
+          href.includes("/watch/?v=") ||
+          href.includes("/watch?v=") ||
+          href.includes("/reel/") ||
+          href.includes("/videos/") ||
+          href.includes("fb.watch/")
+        ) {
+          try {
+            return new URL(href, window.location.origin).href;
+          } catch (e) {
+            return href;
+          }
+        }
+      }
+    }
+    const parentA = video.closest("a[href]");
+    if (parentA && parentA.href) {
+      return parentA.href;
+    }
+    return null;
+  }
+
+  function findTwitterVideoTarget(video) {
+    if (location.pathname.includes("/status/")) {
+      return window.location.href;
+    }
+    const article = video.closest("article");
+    if (article) {
+      const link = article.querySelector('a[href*="/status/"]');
+      if (link) {
+        try {
+          return new URL(link.getAttribute("href"), window.location.origin).href;
+        } catch (e) {
+          return link.href;
+        }
+      }
+    }
+    return null;
+  }
+
+  function findInstagramVideoTarget(video) {
+    if (
+      location.pathname.includes("/p/") ||
+      location.pathname.includes("/reel/") ||
+      location.pathname.includes("/tv/")
+    ) {
+      return window.location.href;
+    }
+    const article = video.closest("article");
+    if (article) {
+      const link = article.querySelector('a[href*="/p/"], a[href*="/reel/"], a[href*="/tv/"]');
+      if (link) {
+        try {
+          return new URL(link.getAttribute("href"), window.location.origin).href;
+        } catch (e) {
+          return link.href;
+        }
+      }
+    }
+    return null;
+  }
+
+  function findRedditVideoTarget(video) {
+    if (location.pathname.includes("/comments/")) {
+      return window.location.href;
+    }
+    const post = video.closest("shreddit-post, [data-testid='post-container'], div[id^='t3_']");
+    if (post) {
+      const link = post.querySelector('a[href*="/comments/"]');
+      if (link) {
+        try {
+          return new URL(link.getAttribute("href"), window.location.origin).href;
+        } catch (e) {
+          return link.href;
+        }
+      }
+    }
+    return null;
+  }
+
   function resolveVideoMediaTarget(video) {
     const pageUrl = window.location.href;
     const directSrc = video.currentSrc || video.src || "";
@@ -119,7 +219,31 @@
       return directSrc;
     }
 
-    // 2. Check <source> tags inside <video>
+    // 2. Facebook feed post or reel permalink detection
+    if (location.hostname.includes("facebook.com") || location.hostname.includes("fb.watch")) {
+      const fbTarget = findFacebookVideoTarget(video);
+      if (fbTarget) return fbTarget;
+    }
+
+    // 3. Twitter / X timeline post permalink detection
+    if (location.hostname.includes("twitter.com") || location.hostname.includes("x.com")) {
+      const twTarget = findTwitterVideoTarget(video);
+      if (twTarget) return twTarget;
+    }
+
+    // 4. Instagram feed post / reel permalink detection
+    if (location.hostname.includes("instagram.com")) {
+      const igTarget = findInstagramVideoTarget(video);
+      if (igTarget) return igTarget;
+    }
+
+    // 5. Reddit feed post permalink detection
+    if (location.hostname.includes("reddit.com")) {
+      const rdTarget = findRedditVideoTarget(video);
+      if (rdTarget) return rdTarget;
+    }
+
+    // 6. Check <source> tags inside <video>
     const sources = Array.from(video.querySelectorAll("source"));
     for (const s of sources) {
       const sSrc = s.src || s.getAttribute("data-src") || "";

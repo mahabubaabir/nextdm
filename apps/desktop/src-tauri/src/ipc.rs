@@ -231,6 +231,9 @@ async fn dispatch(app: &AppHandle, engine: &Engine, request: HostRequest) -> Hos
                     serde_json::json!({
                         "url": url,
                         "title": filename,
+                        "cookies": cookies,
+                        "referrer": referrer,
+                        "userAgent": user_agent,
                     }),
                 );
                 return HostResponse::ok();
@@ -256,7 +259,7 @@ async fn dispatch(app: &AppHandle, engine: &Engine, request: HostRequest) -> Hos
                 Err(error) => HostResponse::error(format!("failed to queue download: {error}")),
             }
         }
-        HostRequest::ProbeMedia { url, .. } => match nextdm_media::ytdlp::probe(&url).await {
+        HostRequest::ProbeMedia { url, .. } => match nextdm_media::ytdlp::probe(&url, None).await {
             Ok(info) => match serde_json::to_value(info) {
                 Ok(value) => HostResponse::ok().with_data(value),
                 Err(error) => HostResponse::error(error.to_string()),

@@ -69,13 +69,16 @@ struct RawFormat {
 }
 
 /// Ask yt-dlp for metadata and a flat list of downloadable formats.
-pub async fn probe(url: &str) -> Result<MediaInfo> {
+pub async fn probe(url: &str, cookies: Option<&str>) -> Result<MediaInfo> {
     let mut cmd = Command::new(yt_dlp_path());
     configure_command(&mut cmd);
+    cmd.args(["-J", "--no-playlist", "--no-warnings", "--skip-download"]);
+    if let Some(cookie_str) = cookies.filter(|c| !c.trim().is_empty()) {
+        cmd.arg("--add-header").arg(format!("Cookie: {cookie_str}"));
+    }
+    cmd.arg(url);
+    cmd.stdin(Stdio::null());
     let output = cmd
-        .args(["-J", "--no-playlist", "--no-warnings", "--skip-download"])
-        .arg(url)
-        .stdin(Stdio::null())
         .output()
         .await
         .map_err(|error| {
@@ -315,7 +318,7 @@ pub async fn download(
     output_dir: &Path,
     file_stem: Option<&str>,
 ) -> Result<PathBuf> {
-    download_with_progress(url, format_id, output_dir, file_stem, |_, _, _, _| {}).await
+    download_with_progress(url, format_id, output_dir, file_stem, None, |_, _, _, _| {}).await
 }
 
 /// Download a media URL with yt-dlp with live progress callbacks.
@@ -324,6 +327,7 @@ pub async fn download_with_progress<F>(
     format_id: Option<&str>,
     output_dir: &Path,
     file_stem: Option<&str>,
+    cookies: Option<&str>,
     mut on_progress: F,
 ) -> Result<PathBuf>
 where
@@ -367,8 +371,13 @@ where
         // Ensure any merged audio in MP4 is standardized to stereo AAC (replaces incompatible Opus),
         // and add faststart so the file begins playing immediately without waiting for whole-file index
         .arg("--postprocessor-args")
-        .arg("Merger+ffmpeg_o:-c:v copy -c:a aac -b:a 192k -movflags +faststart VideoConvertor+ffmpeg_o:-c:v copy -c:a aac -b:a 192k -movflags +faststart")
-        .arg("-f")
+        .arg("Merger+ffmpeg_o:-c:v copy -c:a aac -b:a 192k -movflags +faststart VideoConvertor+ffmpeg_o:-c:v copy -c:a aac -b:a 192k -movflags +faststart");
+
+    if let Some(cookie_str) = cookies.filter(|c| !c.trim().is_empty()) {
+        cmd.arg("--add-header").arg(format!("Cookie: {cookie_str}"));
+    }
+
+    cmd.arg("-f")
         .arg(format)
         .arg("-o")
         .arg(template)

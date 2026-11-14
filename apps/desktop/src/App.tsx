@@ -106,6 +106,7 @@ function App() {
   const [updateManagerOpen, setUpdateManagerOpen] = useState(false);
   const [initialUrls, setInitialUrls] = useState("");
   const [mediaDialogUrl, setMediaDialogUrl] = useState<string>("");
+  const [mediaDialogCookies, setMediaDialogCookies] = useState<string>("");
   const [fileInfoUrl, setFileInfoUrl] = useState<string | null>(null);
   const [activeProgressId, setActiveProgressId] = useState<string | null>(null);
   const [completedDownload, setCompletedDownload] = useState<DownloadInfo | null>(null);
@@ -220,9 +221,10 @@ function App() {
           setActiveProgressId(event.payload.id);
         });
 
-        unlistenMediaGrab = await listen<{ url: string; title?: string }>("browser://media_grab", (event) => {
-          const { url } = event.payload;
+        unlistenMediaGrab = await listen<{ url: string; title?: string; cookies?: string }>("browser://media_grab", (event) => {
+          const { url, cookies } = event.payload;
           if (url) {
+            setMediaDialogCookies(cookies || "");
             setMediaDialogUrl(url);
             setDialog("media");
           }
@@ -496,6 +498,7 @@ function App() {
     formatId: string | null,
     fileStem: string,
     expectedSize?: number | null,
+    cookies?: string | null,
   ) => {
     notify("info", `Downloading media: ${fileStem || "video"}...`);
     invoke<DownloadInfo>("media_download", {
@@ -504,6 +507,7 @@ function App() {
       fileStem,
       directory: settings.defaultDir || null,
       expectedSize: expectedSize ?? null,
+      cookies: cookies || mediaDialogCookies || null,
     })
       .then((info) => {
         setDownloads((current) => upsert(current, info));
@@ -546,10 +550,9 @@ function App() {
 
   const downloadFolder = async () => {
     try {
-      const list = await invoke<DownloadInfo[]>("list_downloads");
-      const completed = list.find((download) => download.status === "completed");
-      if (completed) {
-        invoke("reveal_path", { path: completed.path }).catch((error) => notify("error", String(error)));
+      const targetDir = settings.defaultDir || (await invoke<string>("default_download_dir"));
+      if (targetDir) {
+        invoke("open_path", { path: targetDir }).catch((error) => notify("error", String(error)));
       }
     } catch (error) {
       notify("error", String(error));
@@ -974,9 +977,11 @@ function App() {
       <MediaDialog
         open={dialog === "media"}
         initialUrl={mediaDialogUrl}
+        cookies={mediaDialogCookies}
         defaultDir={settings.defaultDir}
         onClose={() => {
           setMediaDialogUrl("");
+          setMediaDialogCookies("");
           setDialog(null);
         }}
         onDownload={startMediaDownload}

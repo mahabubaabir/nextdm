@@ -8,15 +8,17 @@ import type { MediaFormat, MediaInfo } from "../types";
 export function MediaDialog({
   open,
   initialUrl,
+  cookies,
   defaultDir,
   onClose,
   onDownload,
 }: {
   open: boolean;
   initialUrl?: string;
+  cookies?: string;
   defaultDir: string;
   onClose: () => void;
-  onDownload: (url: string, formatId: string | null, fileStem: string, expectedSize?: number | null) => void;
+  onDownload: (url: string, formatId: string | null, fileStem: string, expectedSize?: number | null, cookies?: string | null) => void;
 }) {
   const [url, setUrl] = useState("");
   const [info, setInfo] = useState<MediaInfo | null>(null);
@@ -34,7 +36,7 @@ export function MediaDialog({
     setInfo(null);
     setSelected(null);
     try {
-      const result = await invoke<MediaInfo>("media_probe", { url: trimmed });
+      const result = await invoke<MediaInfo>("media_probe", { url: trimmed, cookies: cookies || null });
       setInfo(result);
       setSelected(null);
     } catch (caught) {
@@ -65,7 +67,7 @@ export function MediaDialog({
 
     if (targetUrl) {
       setLoading(true);
-      invoke<MediaInfo>("media_probe", { url: targetUrl })
+      invoke<MediaInfo>("media_probe", { url: targetUrl, cookies: cookies || null })
         .then((result) => {
           if (cancelled) return;
           setInfo(result);
@@ -97,7 +99,7 @@ export function MediaDialog({
     if (!info) return;
     const chosenFormat = selected ? info.formats.find((f) => f.formatId === selected) : null;
     const expectedSize = chosenFormat ? chosenFormat.filesize : null;
-    onDownload(info.webpageUrl || url.trim(), selected, info.title, expectedSize);
+    onDownload(info.webpageUrl || url.trim(), selected, info.title, expectedSize, cookies || null);
     onClose();
   };
 

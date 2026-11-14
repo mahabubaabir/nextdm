@@ -19,7 +19,11 @@ if (typeof chrome !== "undefined" && chrome.webRequest && chrome.webRequest.onBe
           lower.includes(".m3u8") ||
           lower.includes(".mpd") ||
           lower.includes("fast.wistia.net/embed/iframe") ||
-          lower.includes("fast.wistia.com/embed/medias")
+          lower.includes("fast.wistia.com/embed/medias") ||
+          (lower.includes("fbcdn.net") && (lower.includes(".mp4") || lower.includes("/v/"))) ||
+          lower.includes("googlevideo.com/videoplayback") ||
+          lower.includes("v.redd.it") ||
+          lower.includes("tiktokcdn.com")
         ) {
           tabMediaStreams.set(details.tabId, details.url);
         }

@@ -29,3 +29,4 @@ nextdm-browser-host = { path = "../../../crates/browser-host" }
 include_dir = "0.7"
 tracing.workspace = true
 tracing-subscriber.workspace = true
+url.workspace = true
