@@ -28,6 +28,7 @@ export function OptionsDialog({
   onSave,
   onPreviewTheme,
   onOpenUpdateManager,
+  engineVersion,
 }: {
   open: boolean;
   settings: Settings;
@@ -35,6 +36,7 @@ export function OptionsDialog({
   onSave: (settings: Settings) => void;
   onPreviewTheme: (theme: Settings["theme"]) => void;
   onOpenUpdateManager?: () => void;
+  engineVersion?: string;
 }) {
   const safeSettings: Settings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
   const [tab, setTab] = useState<Tab>("general");
@@ -45,6 +47,8 @@ export function OptionsDialog({
   const [browserBusy, setBrowserBusy] = useState(false);
   const [browserResult, setBrowserResult] = useState("");
   const [hostInstalled, setHostInstalled] = useState<boolean | null>(null);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [backupMessage, setBackupMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -120,9 +124,6 @@ export function OptionsDialog({
       window.open(url, "_blank");
     }
   };
-
-  const [backupBusy, setBackupBusy] = useState(false);
-  const [backupMessage, setBackupMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const handleExportBackup = async () => {
     setBackupBusy(true);
@@ -670,7 +671,7 @@ export function OptionsDialog({
 
           {tab === "advanced" ? (
             <section className="option-section">
-              <AboutView engineVersion="0.2.1" onOpenUpdateManager={onOpenUpdateManager} />
+              <AboutView engineVersion={engineVersion || "0.2.2"} onOpenUpdateManager={onOpenUpdateManager} />
             </section>
           ) : null}
         </div>

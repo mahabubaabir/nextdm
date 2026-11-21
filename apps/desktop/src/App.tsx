@@ -113,7 +113,7 @@ function App() {
   const [clipboardDetectedUrl, setClipboardDetectedUrl] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; download: DownloadInfo } | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [engineVersion, setEngineVersion] = useState("0.2.1");
+  const [engineVersion, setEngineVersion] = useState("0.2.2");
 
   const lastSelected = useRef<string | null>(null);
   const settingsRef = useRef(settings);
@@ -966,6 +966,7 @@ function App() {
       <OptionsDialog
         open={dialog === "options"}
         settings={settings}
+        engineVersion={engineVersion}
         onClose={closeOptions}
         onSave={saveOptions}
         onPreviewTheme={(theme) => setSettings((current) => ({ ...current, theme }))}

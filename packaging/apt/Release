@@ -1,18 +1,18 @@
 Origin: NextDM
-Label: NextDM Repository
+Label: NextDM
 Suite: stable
 Codename: stable
-Version: 0.2.1-1
+Version: 0.2.2-1
 Architectures: amd64
 Components: main
-Description: NextDM Official APT Repository for Linux Mint & Ubuntu
-Date: Sat, 21 Nov 2026 01:50:21 UTC
+Description: Official APT repository for NextDM download manager
+Date: Sat, 21 Nov 2026 04:30:14 UTC
 MD5Sum:
- e86157eedb65e9d935c47353447945ea 820 main/binary-amd64/Packages
- 93d5d0980136d1c678e75ac522566238 561 main/binary-amd64/Packages.gz
+ 7dd837b3d2dab31e674c6e7fd8f8b545 699 main/binary-amd64/Packages
+ 3b16f21989eb609d1323aae6b996053d 446 main/binary-amd64/Packages.gz
 SHA1:
- 47ac07be301b40d9b6982c0b8be0dce938464b42 820 main/binary-amd64/Packages
- d027bb19ce2010d645bfc43ede94bc69585d6dee 561 main/binary-amd64/Packages.gz
+ 7419bb629c16d75ca6b2a0eb0bcce4b8a3fbde1b 699 main/binary-amd64/Packages
+ 3ad730e6ebc303457ba6d179be05e44a6c4e77b4 446 main/binary-amd64/Packages.gz
 SHA256:
- 6eb603bc34a9a2b7f3696d24d625340e11e580d73f43cde51204f89d0c32b266 820 main/binary-amd64/Packages
- 627aa776fcf63ec54a82c2aa4fca26f00e0b4c2063b52c6555783951e6302c05 561 main/binary-amd64/Packages.gz
+ 0e611ff03a46c8c06f7849247bb5376780ce49a0dfb6c72aae1801e80688d8c5 699 main/binary-amd64/Packages
+ 6a2f212937298c7a810907405e1aa8e3b2b63e0d48bf57fd8b25a3e9bfba404c 446 main/binary-amd64/Packages.gz
