@@ -113,7 +113,7 @@ function App() {
   const [clipboardDetectedUrl, setClipboardDetectedUrl] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; download: DownloadInfo } | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [engineVersion, setEngineVersion] = useState("0.2.0");
+  const [engineVersion, setEngineVersion] = useState("0.2.1");
 
   const lastSelected = useRef<string | null>(null);
   const settingsRef = useRef(settings);

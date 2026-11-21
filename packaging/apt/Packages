@@ -1,13 +1,13 @@
 Package: next-dm
-Version: 0.2.0-3
+Version: 0.2.1-1
 Architecture: amd64
 Maintainer: Marbor Tech by Mahabub H. Aabir <mahabub.aabir@yahoo.com>
 Depends: libwebkit2gtk-4.1-0 | libwebkit2gtk-4.0-37, libgtk-3-0, libayatana-appindicator3-1 | libappindicator3-1
-Filename: pool/main/n/next-dm/next-dm_0.2.0-3_amd64.deb
-Size: 4427612
-MD5sum: a6be6804a467dd6fcc8f80414ecf9126
-SHA1: a00eb040b267a9cbaed8f150bf8e4ab15665a5f2
-SHA256: c86647568135d521a1c5eb58ea3490f1db2356863f1f259286e0594266b44528
+Filename: pool/main/n/next-dm/next-dm_0.2.1-1_amd64.deb
+Size: 4427216
+MD5sum: 7e0dac6909090375cab922d7e1fdd91f
+SHA1: 314235f111613fb1f51dc84baae0c1155b8a9828
+SHA256: 7cea0fd70d3bf5cda91da2244fab8ac86ce3461998c76055c1b96b812efd7452
 Section: net
 Priority: optional
 Homepage: https://github.com/mahabubaabir/nextdm

@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
   "name": "NextDM Integration",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Hand downloads from your browser to NextDM.",
   "browser_specific_settings": {
     "gecko": {
       "id": "nextdm@nextdm.app",
-      "strict_min_version": "140.0",
+      "strict_min_version": "115.0",
       "data_collection_permissions": {
         "required": [
           "none"

@@ -76,7 +76,53 @@
       });
     }
 
+    // Make badge draggable so user can move it anywhere on player
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let initialBadgeLeft = 0;
+    let initialBadgeTop = 0;
+    let hasMoved = false;
+
+    badge.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      isDragging = true;
+      hasMoved = false;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+
+      const rect = badge.getBoundingClientRect();
+      const parentRect = (badge.offsetParent || document.body).getBoundingClientRect();
+      initialBadgeLeft = rect.left - parentRect.left;
+      initialBadgeTop = rect.top - parentRect.top;
+
+      const onMouseMove = (moveEvent) => {
+        if (!isDragging) return;
+        const dx = moveEvent.clientX - dragStartX;
+        const dy = moveEvent.clientY - dragStartY;
+        if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+          hasMoved = true;
+          badge.style.right = "auto";
+          badge.style.left = `${Math.max(4, initialBadgeLeft + dx)}px`;
+          badge.style.top = `${Math.max(4, initialBadgeTop + dy)}px`;
+        }
+      };
+
+      const onMouseUp = () => {
+        isDragging = false;
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+      };
+
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
+    });
+
     badge.addEventListener("click", (e) => {
+      if (hasMoved) {
+        hasMoved = false;
+        return;
+      }
       e.stopPropagation();
       e.preventDefault();
 

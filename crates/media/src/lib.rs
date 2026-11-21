@@ -370,8 +370,11 @@ mod tests {
         #[cfg(unix)]
         {
             let home = home_dir().unwrap();
+            let nextdm_bin = home.join(".local/share/nextdm/bin/yt-dlp");
             let local_bin = home.join(".local/bin/yt-dlp");
-            if local_bin.is_file() {
+            if nextdm_bin.is_file() {
+                assert_eq!(path, nextdm_bin.to_string_lossy().to_string());
+            } else if local_bin.is_file() {
                 assert_eq!(path, local_bin.to_string_lossy().to_string());
             }
         }
@@ -388,6 +391,21 @@ mod tests {
             }
             Err(e) => {
                 panic!("Probe failed: {:?}", e);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_yt_dlp_probe_youtube_shorts() {
+        let res = ytdlp::probe("https://www.youtube.com/shorts/cnpeI6vKwyc", Some("test=123")).await;
+        match res {
+            Ok(info) => {
+                println!("Probed shorts title: {}", info.title);
+                assert!(!info.title.is_empty());
+                assert!(!info.formats.is_empty());
+            }
+            Err(e) => {
+                panic!("Shorts probe failed: {:?}", e);
             }
         }
     }

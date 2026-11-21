@@ -2,8 +2,8 @@
 .nextdm-video-badge {
   position: absolute !important;
   z-index: 2147483647 !important;
-  top: 12px !important;
-  right: 12px !important;
+  top: 14px !important;
+  right: 72px !important;
   display: flex !important;
   align-items: center !important;
   background: rgba(14, 14, 16, 0.88) !important;

@@ -68,15 +68,43 @@ struct RawFormat {
     resolution: Option<String>,
 }
 
+fn is_youtube_url(url: &str) -> bool {
+    let lower = url.to_lowercase();
+    lower.contains("youtube.com/") || lower.contains("youtu.be/")
+}
+
+fn clean_ytdlp_error(stderr: &str) -> String {
+    let lines: Vec<&str> = stderr
+        .lines()
+        .map(|l| l.trim())
+        .filter(|l| {
+            !l.is_empty()
+                && !l.starts_with("Deprecated Feature:")
+                && !l.starts_with("WARNING:")
+        })
+        .collect();
+
+    if lines.is_empty() {
+        tail(stderr, 1200)
+    } else {
+        tail(&lines.join("\n"), 1200)
+    }
+}
+
 /// Ask yt-dlp for metadata and a flat list of downloadable formats.
 pub async fn probe(url: &str, cookies: Option<&str>) -> Result<MediaInfo> {
+    let clean_url = url.trim();
     let mut cmd = Command::new(yt_dlp_path());
     configure_command(&mut cmd);
     cmd.args(["-J", "--no-playlist", "--no-warnings", "--skip-download"]);
-    if let Some(cookie_str) = cookies.filter(|c| !c.trim().is_empty()) {
-        cmd.arg("--add-header").arg(format!("Cookie: {cookie_str}"));
+    // Do not pass raw browser cookies to YouTube: YouTube's anti-bot/PO-token blocks
+    // requests with mismatched raw browser headers, causing "Requested format is not available".
+    if !is_youtube_url(clean_url) {
+        if let Some(cookie_str) = cookies.filter(|c| !c.trim().is_empty()) {
+            cmd.arg("--add-header").arg(format!("Cookie: {cookie_str}"));
+        }
     }
-    cmd.arg(url);
+    cmd.arg(clean_url);
     cmd.stdin(Stdio::null());
     let output = cmd
         .output()
@@ -91,7 +119,7 @@ pub async fn probe(url: &str, cookies: Option<&str>) -> Result<MediaInfo> {
 
     if !output.status.success() {
         let message = String::from_utf8_lossy(&output.stderr);
-        return Err(MediaError::Failed(tail(&message, 1200)));
+        return Err(MediaError::Failed(clean_ytdlp_error(&message)));
     }
 
     let raw: RawInfo = serde_json::from_slice(&output.stdout)?;
@@ -373,8 +401,10 @@ where
         .arg("--postprocessor-args")
         .arg("Merger+ffmpeg_o:-c:v copy -c:a aac -b:a 192k -movflags +faststart VideoConvertor+ffmpeg_o:-c:v copy -c:a aac -b:a 192k -movflags +faststart");
 
-    if let Some(cookie_str) = cookies.filter(|c| !c.trim().is_empty()) {
-        cmd.arg("--add-header").arg(format!("Cookie: {cookie_str}"));
+    if !is_youtube_url(url) {
+        if let Some(cookie_str) = cookies.filter(|c| !c.trim().is_empty()) {
+            cmd.arg("--add-header").arg(format!("Cookie: {cookie_str}"));
+        }
     }
 
     cmd.arg("-f")
@@ -456,7 +486,7 @@ where
     let stderr_output = stderr_handle.await.unwrap_or_default();
 
     if !status.success() {
-        return Err(MediaError::Failed(tail(&stderr_output, 1600)));
+        return Err(MediaError::Failed(clean_ytdlp_error(&stderr_output)));
     }
 
     if let Some(path) = finished_path {
