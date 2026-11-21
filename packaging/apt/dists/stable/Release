@@ -1,12 +1,12 @@
 Origin: NextDM
-Label: NextDM
+Label: NextDM Repository
 Suite: stable
 Codename: stable
 Version: 0.2.2-1
 Architectures: amd64
 Components: main
-Description: Official APT repository for NextDM download manager
-Date: Sat, 21 Nov 2026 04:30:14 UTC
+Description: NextDM Official APT Repository for Linux Mint & Ubuntu
+Date: Sat, 21 Nov 2026 04:33:14 UTC
 MD5Sum:
  7dd837b3d2dab31e674c6e7fd8f8b545 699 main/binary-amd64/Packages
  3b16f21989eb609d1323aae6b996053d 446 main/binary-amd64/Packages.gz
