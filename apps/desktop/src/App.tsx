@@ -987,6 +987,7 @@ function App() {
         initialUrl={mediaDialogUrl}
         cookies={mediaDialogCookies}
         defaultDir={settings.defaultDir}
+        categoryRouting={settings.categoryRouting ?? true}
         onClose={() => {
           setMediaDialogUrl("");
           setMediaDialogCookies("");

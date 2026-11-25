@@ -62,11 +62,7 @@ if (typeof chrome !== "undefined" && chrome.webRequest && chrome.webRequest.onBe
           lower.includes(".m3u8") ||
           lower.includes(".mpd") ||
           lower.includes("fast.wistia.net/embed/iframe") ||
-          lower.includes("fast.wistia.com/embed/medias") ||
-          (lower.includes("fbcdn.net") && (lower.includes(".mp4") || lower.includes("/v/"))) ||
-          lower.includes("googlevideo.com/videoplayback") ||
-          lower.includes("v.redd.it") ||
-          lower.includes("tiktokcdn.com")
+          lower.includes("fast.wistia.com/embed/medias")
         ) {
           tabMediaStreams.set(details.tabId, details.url);
         }
@@ -331,7 +327,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === "nextdm_grab_media") {
     let finalUrl = message.url;
-    if (finalUrl === message.pageUrl && sender && sender.tab && sender.tab.id !== undefined) {
+    if (
+      finalUrl === message.pageUrl &&
+      !isMediaSite(finalUrl) &&
+      sender &&
+      sender.tab &&
+      sender.tab.id !== undefined
+    ) {
       const captured = tabMediaStreams.get(sender.tab.id);
       if (captured) {
         finalUrl = captured;

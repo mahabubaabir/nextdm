@@ -156,6 +156,19 @@ where
     Ok(())
 }
 
+fn is_raw_media_stream_url(url: &str) -> bool {
+    let lower = url.to_lowercase();
+    lower.contains("googlevideo.com/videoplayback")
+        || lower.contains("fbcdn.net/")
+        || lower.contains("tiktokcdn.com/")
+        || lower.contains("v.redd.it/")
+        || lower.contains("video.twimg.com/")
+        || lower.contains(".m3u8")
+        || lower.contains(".mpd")
+        || lower.contains(".f4m")
+        || lower.contains(".ism/")
+}
+
 fn is_media_site_url(url: &str) -> bool {
     let lower = url.to_lowercase();
     lower.contains(".m3u8")
@@ -177,6 +190,7 @@ fn is_media_site_url(url: &str) -> bool {
         || lower.contains("tiktok.com/")
         || (lower.contains("twitter.com/") && lower.contains("/status/"))
         || (lower.contains("x.com/") && lower.contains("/status/"))
+        || (lower.contains("reddit.com/") && lower.contains("/comments/"))
         || lower.contains("vimeo.com/")
         || lower.contains("player.vimeo.com")
         || lower.contains("dailymotion.com/video")
@@ -192,6 +206,19 @@ fn is_media_site_url(url: &str) -> bool {
         || lower.contains("jwplatform.com")
         || lower.contains("kaltura.com")
         || lower.contains("bitchute.com")
+}
+
+/// Prefer the video webpage URL when an extension captures a raw single-stream fragment
+/// (e.g. `googlevideo.com/videoplayback`) from a platform page yt-dlp handles natively.
+fn normalize_media_url(url: &str, referrer: Option<&str>) -> String {
+    if is_raw_media_stream_url(url) {
+        if let Some(ref_url) = referrer.map(str::trim).filter(|s| !s.is_empty()) {
+            if is_media_site_url(ref_url) && !is_raw_media_stream_url(ref_url) {
+                return ref_url.to_string();
+            }
+        }
+    }
+    url.to_string()
 }
 
 async fn dispatch(app: &AppHandle, engine: &Engine, request: HostRequest) -> HostResponse {
@@ -224,13 +251,14 @@ async fn dispatch(app: &AppHandle, engine: &Engine, request: HostRequest) -> Hos
             is_media,
         } => {
             if is_media || is_media_site_url(&url) {
-                info!(url = %url, "intercepted media download URL, opening media dialog");
+                let target_url = normalize_media_url(&url, referrer.as_deref());
+                info!(url = %target_url, raw_url = %url, "intercepted media download URL, opening media dialog");
                 show_main(app);
                 let _ = tauri::Emitter::emit(
                     app,
                     "browser://media_grab",
                     serde_json::json!({
-                        "url": url,
+                        "url": target_url,
                         "title": filename,
                         "cookies": cookies,
                         "referrer": referrer,
@@ -291,4 +319,20 @@ pub fn show_main(app: &AppHandle) {
     let _ = window.set_always_on_top(true);
     let _ = window.set_always_on_top(false);
     let _ = window.request_user_attention(Some(tauri::UserAttentionType::Critical));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn prefers_platform_referrer_over_raw_stream_chunk() {
+        let chunk = "https://rr2---sn-nnpcq-q5jk.googlevideo.com/videoplayback?expire=123&itag=399";
+        let page = "https://www.youtube.com/watch?v=DyODoiABQLM";
+        assert_eq!(normalize_media_url(chunk, Some(page)), page);
+
+        let hls = "https://cdn.example.com/course/master.m3u8";
+        let course_page = "https://www.urbanforex.com/products/course/posts/123";
+        assert_eq!(normalize_media_url(hls, Some(course_page)), hls);
+    }
 }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Modal } from "./Modal";
 import { Icon } from "./Icons";
-import { formatBytes, formatDuration } from "../lib";
+import { formatBytes, formatDuration, joinCategoryPath } from "../lib";
 import type { MediaFormat, MediaInfo } from "../types";
 
 export function MediaDialog({
@@ -10,6 +10,7 @@ export function MediaDialog({
   initialUrl,
   cookies,
   defaultDir,
+  categoryRouting = true,
   onClose,
   onDownload,
 }: {
@@ -17,6 +18,7 @@ export function MediaDialog({
   initialUrl?: string;
   cookies?: string;
   defaultDir: string;
+  categoryRouting?: boolean;
   onClose: () => void;
   onDownload: (
     url: string,
@@ -103,9 +105,16 @@ export function MediaDialog({
 
   if (!open) return null;
 
+  const chosenFormat = selected && info ? info.formats.find((f) => f.formatId === selected) ?? null : null;
+  const mediaCategory = chosenFormat?.kind === "audio" ? "music" : "video";
+  const displayDir = defaultDir
+    ? categoryRouting
+      ? joinCategoryPath(defaultDir, mediaCategory)
+      : defaultDir
+    : "";
+
   const startDownload = () => {
     if (!info) return;
-    const chosenFormat = selected ? info.formats.find((f) => f.formatId === selected) : null;
     const expectedSize = chosenFormat ? chosenFormat.filesize : null;
     onDownload(
       info.webpageUrl || url.trim(),
@@ -121,9 +130,9 @@ export function MediaDialog({
 
   const grouped = info
     ? [
-        { kind: "video", label: "Video", formats: info.formats.filter((format) => format.kind === "video") },
-        { kind: "audio", label: "Audio only", formats: info.formats.filter((format) => format.kind === "audio") },
-      ].filter((group) => group.formats.length > 0)
+      { kind: "video", label: "Video", formats: info.formats.filter((format) => format.kind === "video") },
+      { kind: "audio", label: "Audio only", formats: info.formats.filter((format) => format.kind === "audio") },
+    ].filter((group) => group.formats.length > 0)
     : [];
 
   return (
@@ -138,8 +147,8 @@ export function MediaDialog({
           <span className="modal-hint">
             {available === false
               ? "yt-dlp not detected"
-              : defaultDir
-                ? `Saved to ${defaultDir}`
+              : displayDir
+                ? `Saved to ${displayDir}`
                 : "Files are saved to your download folder"}
           </span>
           <div className="modal-actions">

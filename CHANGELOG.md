@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.5] — 2026-11-25
+
+### 🛠 Fixed
+
+- **Preserved Full Video Page URLs (Fixed `googlevideo.com/videoplayback` `0 formats available`):** Stopped `background.js` `tabMediaStreams` from capturing and substituting raw `googlevideo.com/videoplayback`, `fbcdn.net`, `v.redd.it`, and `tiktokcdn.com` chunk URLs over native media platform URLs (`youtube.com`, `facebook.com`, `instagram.com`, `tiktok.com`, etc.), prioritized platform page/permalink matching in `content.js`, and added `normalize_media_url()` in `ipc.rs` so even un-updated `0.2.1` Firefox extensions resolve back to the full webpage `referrer`.
+- **Accurate Media Save Path Display:** `MediaDialog` now shows the effective destination folder (`Video/` or `Music/`) when Category Routing is enabled.
+
+### 🧪 Tests
+
+- Added `prefers_platform_referrer_over_raw_stream_chunk` unit test in `ipc.rs`.
+
 ## [0.2.4] — 2026-11-25
 
 ### 🛠 Fixed

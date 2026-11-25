@@ -258,38 +258,55 @@
       directSrc.includes(".ts") ||
       directSrc.includes(".m4s") ||
       directSrc.includes("/segment") ||
-      directSrc.includes("range=");
+      directSrc.includes("range=") ||
+      directSrc.includes("googlevideo.com/videoplayback");
 
-    // 1. Direct clean video URL on video element
-    if (directSrc && !isBlobOrData && !isChunk) {
-      return directSrc;
-    }
-
-    // 2. Facebook feed post or reel permalink detection
+    // 1. Known media platforms where yt-dlp extracts full formats & audio from page/permalink URL
     if (location.hostname.includes("facebook.com") || location.hostname.includes("fb.watch")) {
       const fbTarget = findFacebookVideoTarget(video);
       if (fbTarget) return fbTarget;
     }
 
-    // 3. Twitter / X timeline post permalink detection
     if (location.hostname.includes("twitter.com") || location.hostname.includes("x.com")) {
       const twTarget = findTwitterVideoTarget(video);
       if (twTarget) return twTarget;
     }
 
-    // 4. Instagram feed post / reel permalink detection
     if (location.hostname.includes("instagram.com")) {
       const igTarget = findInstagramVideoTarget(video);
       if (igTarget) return igTarget;
     }
 
-    // 5. Reddit feed post permalink detection
     if (location.hostname.includes("reddit.com")) {
       const rdTarget = findRedditVideoTarget(video);
       if (rdTarget) return rdTarget;
     }
 
-    // 6. Check <source> tags inside <video>
+    const isKnownMediaSite =
+      location.hostname.includes("youtube.com") ||
+      location.hostname.includes("youtu.be") ||
+      location.hostname.includes("facebook.com") ||
+      location.hostname.includes("fb.watch") ||
+      location.hostname.includes("instagram.com") ||
+      location.hostname.includes("twitter.com") ||
+      location.hostname.includes("x.com") ||
+      location.hostname.includes("tiktok.com") ||
+      location.hostname.includes("vimeo.com") ||
+      location.hostname.includes("dailymotion.com") ||
+      location.hostname.includes("bilibili.com") ||
+      location.hostname.includes("reddit.com") ||
+      location.hostname.includes("twitch.tv") ||
+      location.hostname.includes("rumble.com");
+    if (isKnownMediaSite) {
+      return pageUrl;
+    }
+
+    // 2. Direct clean video URL on video element
+    if (directSrc && !isBlobOrData && !isChunk) {
+      return directSrc;
+    }
+
+    // 3. Check <source> tags inside <video>
     const sources = Array.from(video.querySelectorAll("source"));
     for (const s of sources) {
       const sSrc = s.src || s.getAttribute("data-src") || "";
@@ -378,27 +395,7 @@
       }
     } catch (e) {}
 
-    // 8. Known media platform where yt-dlp supports page URL directly
-    const isKnownMediaSite =
-      location.hostname.includes("youtube.com") ||
-      location.hostname.includes("youtu.be") ||
-      location.hostname.includes("facebook.com") ||
-      location.hostname.includes("fb.watch") ||
-      location.hostname.includes("instagram.com") ||
-      location.hostname.includes("twitter.com") ||
-      location.hostname.includes("x.com") ||
-      location.hostname.includes("tiktok.com") ||
-      location.hostname.includes("vimeo.com") ||
-      location.hostname.includes("dailymotion.com") ||
-      location.hostname.includes("bilibili.com") ||
-      location.hostname.includes("reddit.com") ||
-      location.hostname.includes("twitch.tv") ||
-      location.hostname.includes("rumble.com");
-    if (isKnownMediaSite) {
-      return pageUrl;
-    }
-
-    // 9. Fallback to pageUrl
+    // 8. Fallback to pageUrl
     return pageUrl;
   }
 
