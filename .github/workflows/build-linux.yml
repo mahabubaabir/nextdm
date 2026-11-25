@@ -99,7 +99,11 @@ jobs:
             TAG="v${VERSION}"
           fi
           gh release view "$TAG" || gh release create "$TAG" --title "NextDM $TAG" --notes "NextDM Release $TAG" || true
-          for file in dist-linux/*; do
+          for file in \
+            "dist-linux/NextDM_${VERSION}_amd64.deb" \
+            "dist-linux/next-dm_${VERSION}_amd64.deb" \
+            "dist-linux/nextdm-desktop" \
+            "dist-linux/nextdm-host"; do
             if [ -f "$file" ]; then
               echo "Uploading $file to GitHub release $TAG..."
               gh release upload "$TAG" "$file" --clobber || true

@@ -196,13 +196,11 @@ async function handoff({ url, filename, referrer, isMedia }) {
     type: "addDownload",
     url,
     filename: filename || null,
-    fileName: filename || null,
     referrer: pageUrl,
     cookies,
     userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
     headers: {},
     isMedia: isMediaDownload,
-    is_media: isMediaDownload,
   });
   return true;
 }
@@ -250,22 +248,31 @@ chrome.downloads.onCreated.addListener(async (item) => {
   const settings = await loadSettings();
   if (!settings.enabled) return;
 
-  chrome.downloads.cancel(item.id, () => {
-    chrome.downloads.erase({ id: item.id }, () => void chrome.runtime.lastError);
-  });
+  chrome.downloads.pause(item.id, () => void chrome.runtime.lastError);
 
-  const filename = item.filename ? item.filename.split(/[\\/]/).pop() : null;
+  const rawName = item.filename ? item.filename.split(/[\\/]/).pop() : null;
+  const filename = rawName && !/^\s*$/.test(rawName) ? rawName : null;
   try {
     await handoff({ url, filename, referrer: item.referrer });
+    chrome.downloads.cancel(item.id, () => {
+      chrome.downloads.erase({ id: item.id }, () => void chrome.runtime.lastError);
+    });
     flashBadge("✓");
   } catch (error) {
-    console.warn("NextDM handoff failed, retrying in the browser:", error);
+    console.warn("NextDM handoff failed, resuming in the browser:", error);
     flashBadge("!");
-    reopening.add(url);
-    chrome.downloads.download(
-      { url, conflictAction: "uniquify" },
-      () => void chrome.runtime.lastError,
-    );
+    chrome.downloads.resume(item.id, () => {
+      if (!chrome.runtime.lastError) return;
+      chrome.downloads.search({ id: item.id }, (items) => {
+        const existing = items && items[0];
+        if (existing && existing.state === "complete") return;
+        reopening.add(url);
+        chrome.downloads.download(
+          { url, ...(filename ? { filename } : {}), conflictAction: "uniquify" },
+          () => void chrome.runtime.lastError,
+        );
+      });
+    });
   }
 });
 

@@ -17,6 +17,7 @@ use uuid::Uuid;
 struct ServerConfig {
     data: Arc<Vec<u8>>,
     ranges: bool,
+    reject_range_403: bool,
     chunk_delay: Duration,
     resume_requests: Arc<AtomicUsize>,
     /// Return `text/html` for full-body requests while keeping the initial
@@ -29,10 +30,16 @@ impl ServerConfig {
         Self {
             data: Arc::new(data),
             ranges,
+            reject_range_403: false,
             chunk_delay: Duration::ZERO,
             resume_requests: Arc::new(AtomicUsize::new(0)),
             html_for_full_body: false,
         }
+    }
+
+    fn reject_range_403(mut self) -> Self {
+        self.reject_range_403 = true;
+        self
     }
 
     fn delayed(mut self, delay: Duration) -> Self {
@@ -95,6 +102,7 @@ async fn serve(socket: &mut tokio::net::TcpStream, config: ServerConfig) -> std:
     let full = &config.data[..];
 
     let (status, body, content_range) = match range {
+        Some(_) if config.reject_range_403 => ("403 Forbidden", &[][..], None),
         Some((start, end)) if config.ranges => {
             if start >= total {
                 (
@@ -452,4 +460,31 @@ async fn removed_or_cancelled_media_download_is_not_resurrected() {
         engine.get(cancelled.id).unwrap().unwrap().status,
         DownloadStatus::Cancelled
     );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn range_rejected_origin_falls_back_to_plain_get() {
+    let body = payload(256 * 1024);
+    let url = spawn_server(ServerConfig::new(body.clone(), false).reject_range_403()).await;
+    let temp = tempfile::tempdir().unwrap();
+    let engine = Engine::new(config(&temp)).unwrap();
+
+    let mut spec = DownloadSpec::new(url);
+    spec.file_name = Some("fallback.bin".to_string());
+    let info = engine.add(spec).await.unwrap();
+    assert!(!info.resumable);
+
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let current = engine.get(info.id).unwrap().unwrap();
+        if current.status == DownloadStatus::Completed {
+            assert_eq!(std::fs::read(current.path).unwrap(), body);
+            break;
+        }
+        if current.status == DownloadStatus::Error {
+            panic!("download failed unexpectedly: {:?}", current.error);
+        }
+        assert!(Instant::now() < deadline, "timed out: {current:?}");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
 }

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.4] — 2026-11-25
+
+### 🛠 Fixed
+
+- **Fixed Browser Extension Handoff Rejection (`duplicate field`):** Both Chromium and Firefox extensions previously sent duplicate camelCase and snake_case keys (`filename` + `fileName` and `isMedia` + `is_media`), causing `serde` deserialization in `HostRequest::AddDownload` to reject every browser handoff before reaching NextDM. `protocol.rs` now accepts legacy duplicate fields cleanly (immediately unblocking installed `0.2.1`–`0.2.3` extensions too), and both extensions now send canonical camelCase payloads.
+- **Non-Destructive Browser Fallback:** `chrome.downloads.onCreated` now pauses the browser download while handing off to NextDM, cancelling it only after NextDM confirms and resuming the original browser download cleanly on handoff failure instead of cancelling prematurely or losing filenames.
+- **Range-Rejected Origin Probe Fallback & Browser User-Agent:** `download::probe()` now falls back to a plain `GET` when servers return `400`/`403`/`405`/`416`/`501` on `Range: bytes=0-0`, and `EngineConfig` uses a standard Chrome `User-Agent` without a custom `NextDM/` token.
+- **Release Asset Cleanup:** Updated `build-linux.yml` to upload only the current release's `.deb` and binary artifacts rather than historical `dist-linux/*.deb` packages.
+
+### 🧪 Tests
+
+- Added regression tests covering legacy duplicate camelCase/snake_case `HostRequest::AddDownload` deserialization and range-rejected `403` origin fallback probing.
+
 ## [0.2.3] — 2026-11-25
 
 ### 🛠 Fixed

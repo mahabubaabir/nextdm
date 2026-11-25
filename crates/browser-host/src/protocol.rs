@@ -7,23 +7,23 @@ use serde::{Deserialize, Serialize};
 /// Maximum message size accepted by Chromium and Firefox native messaging.
 pub const MAX_MESSAGE: usize = 1024 * 1024;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum HostRequest {
     Ping,
     AddDownload {
         url: String,
-        #[serde(default, alias = "fileName")]
+        #[serde(default)]
         filename: Option<String>,
         #[serde(default)]
         referrer: Option<String>,
         #[serde(default)]
         cookies: Option<String>,
-        #[serde(default, alias = "userAgent")]
+        #[serde(default)]
         user_agent: Option<String>,
         #[serde(default)]
         headers: std::collections::BTreeMap<String, String>,
-        #[serde(default, alias = "isMedia")]
+        #[serde(default)]
         is_media: bool,
     },
     ProbeMedia {
@@ -36,6 +36,91 @@ pub enum HostRequest {
     ShowWindow,
     GetVersion,
     GetConfig,
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+enum HostRequestWire {
+    Ping,
+    AddDownload {
+        url: String,
+        #[serde(default)]
+        filename: Option<String>,
+        #[serde(default, rename = "fileName")]
+        file_name_camel: Option<String>,
+        #[serde(default)]
+        referrer: Option<String>,
+        #[serde(default)]
+        cookies: Option<String>,
+        #[serde(default)]
+        user_agent: Option<String>,
+        #[serde(default, rename = "userAgent")]
+        user_agent_camel: Option<String>,
+        #[serde(default)]
+        headers: std::collections::BTreeMap<String, String>,
+        #[serde(default)]
+        is_media: Option<bool>,
+        #[serde(default, rename = "isMedia")]
+        is_media_camel: Option<bool>,
+    },
+    ProbeMedia {
+        url: String,
+        #[serde(default)]
+        referrer: Option<String>,
+        #[serde(default)]
+        cookies: Option<String>,
+    },
+    ShowWindow,
+    GetVersion,
+    GetConfig,
+}
+
+impl<'de> Deserialize<'de> for HostRequest {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let wire = HostRequestWire::deserialize(deserializer)?;
+        Ok(match wire {
+            HostRequestWire::Ping => HostRequest::Ping,
+            HostRequestWire::ShowWindow => HostRequest::ShowWindow,
+            HostRequestWire::GetVersion => HostRequest::GetVersion,
+            HostRequestWire::GetConfig => HostRequest::GetConfig,
+            HostRequestWire::ProbeMedia {
+                url,
+                referrer,
+                cookies,
+            } => HostRequest::ProbeMedia {
+                url,
+                referrer,
+                cookies,
+            },
+            HostRequestWire::AddDownload {
+                url,
+                filename,
+                file_name_camel,
+                referrer,
+                cookies,
+                user_agent,
+                user_agent_camel,
+                headers,
+                is_media,
+                is_media_camel,
+            } => HostRequest::AddDownload {
+                url,
+                filename: filename
+                    .filter(|value| !value.is_empty())
+                    .or_else(|| file_name_camel.filter(|value| !value.is_empty())),
+                referrer,
+                cookies,
+                user_agent: user_agent
+                    .filter(|value| !value.is_empty())
+                    .or_else(|| user_agent_camel.filter(|value| !value.is_empty())),
+                headers,
+                is_media: is_media_camel.unwrap_or(false) || is_media.unwrap_or(false),
+            },
+        })
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -171,6 +256,21 @@ mod tests {
             } => {
                 assert!(is_media);
                 assert_eq!(filename.as_deref(), Some("test.mp4"));
+            }
+            _ => panic!("expected AddDownload"),
+        }
+
+        // Legacy 0.2.0-0.2.3 extensions sent both snake_case and camelCase keys together.
+        let legacy: HostRequest = serde_json::from_str(
+            r#"{"type":"addDownload","url":"https://example.com/file.deb","filename":null,"fileName":"file.deb","isMedia":false,"is_media":false}"#,
+        )
+        .unwrap();
+        match legacy {
+            HostRequest::AddDownload {
+                is_media, filename, ..
+            } => {
+                assert!(!is_media);
+                assert_eq!(filename.as_deref(), Some("file.deb"));
             }
             _ => panic!("expected AddDownload"),
         }

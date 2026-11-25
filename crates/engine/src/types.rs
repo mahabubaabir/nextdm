@@ -242,11 +242,11 @@ impl EngineConfig {
             max_connections: 8,
             chunk_size: 2 * 1024 * 1024,
             speed_limit: None,
-            user_agent: format!(
-                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 \
-                 (KHTML, like Gecko) Chrome/140.0 Safari/537.36 NextDM/{}",
-                env!("CARGO_PKG_VERSION")
-            ),
+            user_agent: if cfg!(windows) {
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36".to_string()
+            } else {
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36".to_string()
+            },
         }
     }
 }

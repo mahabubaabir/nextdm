@@ -120,7 +120,8 @@ pub fn apply_headers(
     request
 }
 
-/// Probe a URL using `Range: bytes=0-0` to discover size and resume support.
+/// Probe a URL using `Range: bytes=0-0` to discover size and resume support,
+/// falling back to a plain `GET` when a server rejects range probes.
 pub async fn probe(
     client: &Client,
     url: &str,
@@ -131,10 +132,33 @@ pub async fn probe(
         return Err(Error::message("only http and https URLs are supported"));
     }
 
-    let request = client
-        .get(parsed)
-        .header(ACCEPT_ENCODING, "identity")
-        .header(RANGE, "bytes=0-0");
+    match send_probe(client, parsed.clone(), headers, true).await {
+        Ok(probe) => Ok(probe),
+        Err(Error::Server(message)) if should_retry_plain_probe(&message) => {
+            send_probe(client, parsed, headers, false).await
+        }
+        Err(error) => Err(error),
+    }
+}
+
+fn should_retry_plain_probe(message: &str) -> bool {
+    message.contains("HTTP 400")
+        || message.contains("HTTP 403")
+        || message.contains("HTTP 405")
+        || message.contains("HTTP 416")
+        || message.contains("HTTP 501")
+}
+
+async fn send_probe(
+    client: &Client,
+    parsed: Url,
+    headers: &BTreeMap<String, String>,
+    with_range: bool,
+) -> Result<Probe> {
+    let mut request = client.get(parsed).header(ACCEPT_ENCODING, "identity");
+    if with_range {
+        request = request.header(RANGE, "bytes=0-0");
+    }
     let request = apply_headers(request, headers);
 
     let response = request.send().await?;
@@ -173,15 +197,16 @@ pub async fn probe(
             probe.total_size = total;
         }
         StatusCode::OK => {
-            // The server ignored the range request: single stream, no resume.
+            // The server ignored or did not receive a range request: single stream, no resume.
             probe.total_size = response.content_length();
         }
         StatusCode::RANGE_NOT_SATISFIABLE => {
-            probe.resumable = true;
-            probe.total_size = content_range
-                .as_deref()
-                .and_then(parse_content_range)
-                .and_then(|(_, _, total)| total);
+            if let Some((_, _, total)) = content_range.as_deref().and_then(parse_content_range) {
+                probe.resumable = true;
+                probe.total_size = total;
+            } else {
+                return Err(Error::Server("server responded with HTTP 416".into()));
+            }
         }
         other => {
             return Err(Error::Server(format!(
