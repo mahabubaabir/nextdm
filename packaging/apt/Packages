@@ -2,13 +2,13 @@ Package: next-dm
 Version: 0.2.4
 Architecture: amd64
 Maintainer: nextdm
-Installed-Size: 13779
+Installed-Size: 13839
 Depends: libwebkit2gtk-4.1-0 | libwebkit2gtk-4.0-37, libgtk-3-0, libayatana-appindicator3-1 | libappindicator3-1, libayatana-appindicator3-1, libwebkit2gtk-4.1-0, libgtk-3-0
 Filename: pool/main/n/next-dm/next-dm_0.2.4_amd64.deb
-Size: 6265106
-MD5sum: 9373601e90487edbc292b3e2199bd0e2
-SHA1: 1e3d7d56350e2a05494176fd5daf7502c130ef94
-SHA256: 827e87acd3e60cc0c6228320f66194f5eb73cd26d2519b3a8e3db1f276e8cabf
+Size: 6276708
+MD5sum: 4c744924074d8f8416d2debae4572deb
+SHA1: 9144b3aaf90ee4ac95db08b61c084f65ec292525
+SHA256: e536d565a74a7c2ff6c59123e95508adc0031a6753a202e364085de943c4bd40
 Priority: optional
 Description: Free download manager for Linux
  NextDM is a free and open source download manager for Linux with segmented downloads, resume, browser integration and media downloads.
