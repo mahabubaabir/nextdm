@@ -194,7 +194,10 @@ pub async fn probe(
     Ok(probe)
 }
 
-fn header_string(headers: &reqwest::header::HeaderMap, name: reqwest::header::HeaderName) -> Option<String> {
+fn header_string(
+    headers: &reqwest::header::HeaderMap,
+    name: reqwest::header::HeaderName,
+) -> Option<String> {
     headers
         .get(name)
         .and_then(|value| value.to_str().ok())
@@ -232,9 +235,7 @@ pub fn build_segments(total: u64, max_connections: usize, chunk_size: u64) -> Ve
 
     let chunk_size = chunk_size.max(64 * 1024);
     let chunks = total.div_ceil(chunk_size).max(1);
-    let count = (max_connections.clamp(1, 32) as u64)
-        .min(chunks)
-        .max(1);
+    let count = (max_connections.clamp(1, 32) as u64).min(chunks).max(1);
     let part = total.div_ceil(count);
 
     let mut segments = Vec::with_capacity(count as usize);
@@ -372,10 +373,7 @@ async fn transfer_once(
     }
 
     let range_start = start + written;
-    let mut request = ctx
-        .client
-        .get(ctx.url)
-        .header(ACCEPT_ENCODING, "identity");
+    let mut request = ctx.client.get(ctx.url).header(ACCEPT_ENCODING, "identity");
     request = apply_headers(request, ctx.headers);
     if ctx.resumable {
         if let Some(end) = end {
@@ -387,7 +385,10 @@ async fn transfer_once(
     let status = response.status();
 
     if status == StatusCode::RANGE_NOT_SATISFIABLE {
-        if expected.map(|expected| written >= expected).unwrap_or(false) {
+        if expected
+            .map(|expected| written >= expected)
+            .unwrap_or(false)
+        {
             return Ok(());
         }
         return Err(Error::Server(
@@ -411,7 +412,11 @@ async fn transfer_once(
             let ct_lower = ct.to_ascii_lowercase();
             if ct_lower.starts_with("text/html") || ct_lower.starts_with("application/xhtml+xml") {
                 let file_str = ctx.temp_path.to_string_lossy();
-                let clean_name = file_str.trim_end_matches(".part");
+                // Temp files end in `.nextdm` (and older builds used `.part`),
+                // so strip both before checking the intended extension.
+                let clean_name = file_str
+                    .trim_end_matches(".nextdm")
+                    .trim_end_matches(".part");
                 if is_media_filename(clean_name) {
                     return Err(Error::Server(
                         "remote server returned an HTML webpage (text/html) instead of media content. For streaming or embedded video, please use the NextDM Video Extractor.".into(),
@@ -565,7 +570,12 @@ pub fn sanitize_file_name(name: &str) -> String {
 
     cleaned = cleaned.trim().trim_matches('.').to_string();
     if cleaned.chars().count() > 180 {
-        cleaned = cleaned.chars().take(180).collect::<String>().trim().to_string();
+        cleaned = cleaned
+            .chars()
+            .take(180)
+            .collect::<String>()
+            .trim()
+            .to_string();
     }
     if cleaned.is_empty() || cleaned == "." || cleaned == ".." {
         return "download".to_string();
@@ -640,8 +650,8 @@ pub fn classify(name: &str) -> &'static str {
         .unwrap_or_default()
         .to_ascii_lowercase();
     match extension.as_str() {
-        "mp4" | "mkv" | "avi" | "mov" | "webm" | "flv" | "m4v" | "ts" | "mpg" | "mpeg"
-        | "wmv" | "3gp" => "video",
+        "mp4" | "mkv" | "avi" | "mov" | "webm" | "flv" | "m4v" | "ts" | "mpg" | "mpeg" | "wmv"
+        | "3gp" => "video",
         "mp3" | "m4a" | "aac" | "flac" | "wav" | "ogg" | "opus" | "wma" => "music",
         "zip" | "rar" | "7z" | "tar" | "gz" | "bz2" | "xz" | "iso" | "tgz" | "zst" => "compressed",
         "pdf" | "doc" | "docx" | "xls" | "xlsx" | "ppt" | "pptx" | "txt" | "epub" | "mobi"
@@ -697,7 +707,10 @@ mod tests {
             parse_content_range("bytes 0-0/1234"),
             Some((Some(0), Some(0), Some(1234)))
         );
-        assert_eq!(parse_content_range("bytes */99"), Some((None, None, Some(99))));
+        assert_eq!(
+            parse_content_range("bytes */99"),
+            Some((None, None, Some(99)))
+        );
         assert_eq!(parse_content_range("garbage"), None);
     }
 
@@ -709,7 +722,10 @@ mod tests {
 
         let segments = build_segments(10 * 1024 * 1024, 4, 1024 * 1024);
         assert_eq!(segments.len(), 4);
-        assert_eq!(segments.iter().map(|s| s.total_len().unwrap()).sum::<u64>(), 10 * 1024 * 1024);
+        assert_eq!(
+            segments.iter().map(|s| s.total_len().unwrap()).sum::<u64>(),
+            10 * 1024 * 1024
+        );
         assert_eq!(segments[0].start, 0);
         assert_eq!(segments.last().unwrap().end, Some(10 * 1024 * 1024 - 1));
     }

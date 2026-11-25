@@ -12,12 +12,12 @@ use nextdm_browser_host::protocol::HostRequest;
 use nextdm_engine::{
     DownloadInfo, DownloadSpec, DownloadStatus, Engine, EngineConfig, EngineEvent, EngineStats,
 };
-use nextdm_media::{ytdlp, MediaInfo};
+use nextdm_media::{MediaInfo, ytdlp};
 use serde_json::Value;
 use tauri::{
+    Emitter, Manager, State,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager, State,
 };
 use tracing::info;
 
@@ -90,11 +90,7 @@ fn download_stats(state: State<'_, AppState>) -> Result<EngineStats, String> {
 
 #[tauri::command]
 fn get_settings(state: State<'_, AppState>) -> Result<BTreeMap<String, Value>, String> {
-    state
-        .engine
-        .store()
-        .all_settings()
-        .map_err(error_string)
+    state.engine.store().all_settings().map_err(error_string)
 }
 
 #[tauri::command]
@@ -112,7 +108,10 @@ fn set_speed_limit(state: State<'_, AppState>, bytes_per_second: u64) -> Result<
 
 #[tauri::command]
 fn set_max_connections(state: State<'_, AppState>, connections: usize) -> Result<(), String> {
-    state.engine.set_max_connections(connections).map_err(error_string)
+    state
+        .engine
+        .set_max_connections(connections)
+        .map_err(error_string)
 }
 
 #[tauri::command]
@@ -130,11 +129,7 @@ fn set_default_dir(state: State<'_, AppState>, path: String) -> Result<(), Strin
 
 #[tauri::command]
 fn export_settings_json(state: State<'_, AppState>) -> Result<String, String> {
-    let settings = state
-        .engine
-        .store()
-        .all_settings()
-        .map_err(error_string)?;
+    let settings = state.engine.store().all_settings().map_err(error_string)?;
     let backup = serde_json::json!({
         "app": "NextDM",
         "version": env!("CARGO_PKG_VERSION"),
@@ -182,38 +177,79 @@ async fn install_yt_dlp_cmd() -> Result<String, String> {
 
 #[tauri::command]
 async fn launch_package_installer(version: Option<String>) -> Result<String, String> {
-    let ver = version.unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string());
+    let ver = version
+        .unwrap_or_else(|| env!("CARGO_PKG_VERSION").to_string())
+        .trim()
+        .trim_start_matches('v')
+        .to_string();
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
-    let mut candidate = std::path::PathBuf::from(&home)
-        .join("Downloads")
-        .join(format!("NextDM_{}_amd64.deb", ver));
 
-    if !candidate.exists() {
-        if let Ok(entries) = std::fs::read_dir(std::path::PathBuf::from(&home).join("Downloads")) {
-            for entry in entries.flatten() {
-                let name = entry.file_name().to_string_lossy().to_string();
-                if (name.starts_with("NextDM_") || name.starts_with("next-dm_")) && name.ends_with(".deb") {
-                    candidate = entry.path();
-                    break;
-                }
+    // Only reuse a package that matches the requested version exactly.
+    // Older `NextDM_*.deb` files must not be installed by accident.
+    let exact_names = [
+        format!("NextDM_{ver}_amd64.deb"),
+        format!("next-dm_{ver}_amd64.deb"),
+        format!("next-dm_{ver}-1_amd64.deb"),
+    ];
+    let mut candidate = None;
+    for directory in [
+        std::path::PathBuf::from(&home).join("Downloads"),
+        std::path::PathBuf::from(&home)
+            .join("Downloads")
+            .join("Programs"),
+    ] {
+        for name in &exact_names {
+            let path = directory.join(name);
+            if path.is_file() {
+                candidate = Some(path);
+                break;
             }
+        }
+        if candidate.is_some() {
+            break;
         }
     }
 
-    if !candidate.exists() {
-        let tmp_deb = std::path::PathBuf::from(format!("/tmp/NextDM_{}_amd64.deb", ver));
-        let url = format!(
-            "https://github.com/mahabubaabir/nextdm/releases/download/v{}/NextDM_{}_amd64.deb",
-            ver, ver
-        );
-        let status = std::process::Command::new("curl")
-            .args(["-sL", &url, "-o", tmp_deb.to_str().unwrap_or("/tmp/nextdm.deb")])
-            .status()
-            .map_err(|e| format!("Failed to download update: {e}"))?;
-        if !status.success() {
-            return Err("Failed to download Debian package from GitHub Releases".into());
+    let candidate = match candidate {
+        Some(path) => path,
+        None => {
+            let tmp_deb = std::path::PathBuf::from(format!("/tmp/NextDM_{ver}_amd64.deb"));
+            let _ = std::fs::remove_file(&tmp_deb);
+            let url = format!(
+                "https://github.com/mahabubaabir/nextdm/releases/download/v{ver}/NextDM_{ver}_amd64.deb"
+            );
+            let status = std::process::Command::new("curl")
+                .args(["-fL", "--retry", "2", &url, "-o"])
+                .arg(&tmp_deb)
+                .status()
+                .map_err(|e| format!("Failed to download update: {e}"))?;
+            if !status.success() {
+                return Err(format!(
+                    "Failed to download NextDM v{ver} from GitHub Releases"
+                ));
+            }
+            tmp_deb
         }
-        candidate = tmp_deb;
+    };
+
+    // Never hand an empty file or an HTML error page to the package installer.
+    let metadata =
+        std::fs::metadata(&candidate).map_err(|e| format!("Update package is missing: {e}"))?;
+    if metadata.len() < 1024 {
+        let _ = std::fs::remove_file(&candidate);
+        return Err("Downloaded update package is empty or invalid".into());
+    }
+    let is_deb = {
+        use std::io::Read;
+        let mut magic = [0u8; 8];
+        std::fs::File::open(&candidate)
+            .and_then(|mut file| file.read_exact(&mut magic))
+            .map(|_| &magic[..4] == b"!<ar")
+            .unwrap_or(false)
+    };
+    if !is_deb {
+        let _ = std::fs::remove_file(&candidate);
+        return Err("Downloaded update package is not a valid .deb file".into());
     }
 
     #[cfg(target_os = "linux")]
@@ -276,10 +312,7 @@ fn reveal_path(path: String) -> Result<(), String> {
 
     #[cfg(target_os = "macos")]
     {
-        let _ = std::process::Command::new("open")
-            .arg("-R")
-            .arg(&p)
-            .spawn();
+        let _ = std::process::Command::new("open").arg("-R").arg(&p).spawn();
         return Ok(());
     }
 
@@ -339,7 +372,9 @@ async fn yt_dlp_available() -> bool {
 
 #[tauri::command]
 async fn media_probe(url: String, cookies: Option<String>) -> Result<MediaInfo, String> {
-    ytdlp::probe(&url, cookies.as_deref()).await.map_err(error_string)
+    ytdlp::probe(&url, cookies.as_deref())
+        .await
+        .map_err(error_string)
 }
 
 #[tauri::command]
@@ -352,19 +387,73 @@ async fn media_download(
     file_stem: Option<String>,
     expected_size: Option<u64>,
     cookies: Option<String>,
+    format_kind: Option<String>,
+    extension: Option<String>,
 ) -> Result<DownloadInfo, String> {
-    let directory = directory
+    let audio_only = format_kind
+        .as_deref()
+        .map(|kind| kind.trim().eq_ignore_ascii_case("audio"))
+        .unwrap_or(false);
+
+    let base_dir = directory
+        .map(|d| d.trim().to_string())
+        .filter(|d| !d.is_empty())
         .map(PathBuf::from)
         .unwrap_or_else(|| state.engine.default_dir());
+
+    let category_routing = state
+        .engine
+        .setting("category_routing")
+        .ok()
+        .flatten()
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let category = if audio_only { "music" } else { "video" };
+    let sub = if category_routing {
+        nextdm_engine::manager::category_subfolder(category)
+    } else {
+        ""
+    };
+    let directory = if !sub.is_empty()
+        && !base_dir
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.eq_ignore_ascii_case(sub))
+    {
+        base_dir.join(sub)
+    } else {
+        base_dir
+    };
 
     let raw_name = file_stem
         .clone()
         .filter(|s| !s.trim().is_empty())
-        .unwrap_or_else(|| "video".to_string());
-    let initial_name = if raw_name.ends_with(".mp4") || raw_name.ends_with(".mkv") {
+        .unwrap_or_else(|| {
+            if audio_only {
+                "audio".to_string()
+            } else {
+                "video".to_string()
+            }
+        });
+    let default_ext = if audio_only {
+        extension
+            .as_deref()
+            .map(|e| e.trim().trim_start_matches('.'))
+            .filter(|e| !e.is_empty())
+            .unwrap_or("m4a")
+    } else {
+        "mp4"
+    };
+    let lower_name = raw_name.to_ascii_lowercase();
+    let has_media_ext = [
+        ".mp4", ".mkv", ".webm", ".mov", ".m4a", ".mp3", ".opus", ".ogg", ".wav", ".flac", ".aac",
+    ]
+    .iter()
+    .any(|ext| lower_name.ends_with(ext));
+    let initial_name = if has_media_ext {
         raw_name
     } else {
-        format!("{raw_name}.mp4")
+        format!("{raw_name}.{default_ext}")
     };
 
     // 1. Immediately create an active downloading record in the engine so it appears in the UI
@@ -383,48 +472,58 @@ async fn media_download(
     tauri::async_runtime::spawn(async move {
         let callback_engine = engine.clone();
 
-        let progress_cb = move |downloaded: u64, total: Option<u64>, speed: u64, eta: Option<u64>| {
-            let _ = callback_engine.update_media_progress(download_id, downloaded, total, speed, eta);
+        let progress_cb = move |downloaded: u64,
+                                total: Option<u64>,
+                                speed: u64,
+                                eta: Option<u64>| {
+            let _ =
+                callback_engine.update_media_progress(download_id, downloaded, total, speed, eta);
         };
 
-        match ytdlp::download_with_progress(
+        match ytdlp::download_media_with_progress(
             &target_url,
             format_id.as_deref(),
             &directory,
             file_stem.as_deref(),
             download_cookies.as_deref(),
+            audio_only,
             progress_cb,
         )
         .await
         {
-            Ok(path) => {
-                match engine.complete_media_download(download_id, path) {
-                    Ok(completed_info) => {
-                        let _ = app_handle.emit(
-                            "media://status",
-                            serde_json::json!({
-                                "phase": "finished",
-                                "url": target_url,
-                                "download": completed_info,
-                            }),
-                        );
-                    }
-                    Err(err) => {
-                        let _ = engine.fail_media_download(download_id, err.to_string());
-                    }
+            Ok(path) => match engine.complete_media_download(download_id, path) {
+                Ok(completed_info) => {
+                    let _ = app_handle.emit(
+                        "media://status",
+                        serde_json::json!({
+                            "phase": "finished",
+                            "url": target_url,
+                            "download": completed_info,
+                        }),
+                    );
                 }
-            }
+                Err(err) => {
+                    let _ = engine.fail_media_download(download_id, err.to_string());
+                }
+            },
             Err(err) => {
                 let error_msg = err.to_string();
+                let was_active = engine
+                    .get(download_id)
+                    .ok()
+                    .flatten()
+                    .is_some_and(|item| item.status != nextdm_engine::DownloadStatus::Cancelled);
                 let _ = engine.fail_media_download(download_id, error_msg.clone());
-                let _ = app_handle.emit(
-                    "media://status",
-                    serde_json::json!({
-                        "phase": "error",
-                        "url": target_url,
-                        "message": error_msg,
-                    }),
-                );
+                if was_active {
+                    let _ = app_handle.emit(
+                        "media://status",
+                        serde_json::json!({
+                            "phase": "error",
+                            "url": target_url,
+                            "message": error_msg,
+                        }),
+                    );
+                }
             }
         }
     });
@@ -542,7 +641,10 @@ fn set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
 
             let _ = std::fs::create_dir_all(&startup_dir);
             let current = std::env::current_exe().map_err(|e| e.to_string())?;
-            let content = format!("@start \"\" \"{}\" --background\r\n", current.to_string_lossy());
+            let content = format!(
+                "@start \"\" \"{}\" --background\r\n",
+                current.to_string_lossy()
+            );
             std::fs::write(&startup_bat, content).map_err(|e| e.to_string())?;
         }
         Ok(())
@@ -606,7 +708,9 @@ fn pause_all(app: &tauri::AppHandle) {
             for download in downloads {
                 if matches!(
                     download.status,
-                    DownloadStatus::Queued | DownloadStatus::Connecting | DownloadStatus::Downloading
+                    DownloadStatus::Queued
+                        | DownloadStatus::Connecting
+                        | DownloadStatus::Downloading
                 ) {
                     let _ = state.engine.pause(download.id);
                 }
@@ -632,9 +736,8 @@ pub fn run() {
         return;
     }
 
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-        "nextdm_engine=info,nextdm_desktop_lib=info".into()
-    });
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| "nextdm_engine=info,nextdm_desktop_lib=info".into());
     let _ = tracing_subscriber::fmt().with_env_filter(filter).try_init();
 
     let background = std::env::args().skip(1).any(|arg| arg == "--background");

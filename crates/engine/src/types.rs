@@ -155,6 +155,8 @@ pub struct DownloadInfo {
     pub downloaded: u64,
     pub status: DownloadStatus,
     pub resumable: bool,
+    /// True when the file is produced by the external media helper (yt-dlp).
+    pub media: bool,
     pub content_type: Option<String>,
     pub category: String,
     pub error: Option<String>,

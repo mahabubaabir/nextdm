@@ -9,15 +9,15 @@ fn is_native_messaging_invocation() -> bool {
             || arg.ends_with("@nextdm.app")
             || arg.contains("com.nextdm.host")
             || (arg.ends_with(".json")
-                && (arg.contains("nextdm") || arg.contains("NativeMessaging") || arg.contains("Mozilla")))
+                && (arg.contains("nextdm")
+                    || arg.contains("NativeMessaging")
+                    || arg.contains("Mozilla")))
     })
 }
 
 fn is_register_invocation() -> bool {
     std::env::args().skip(1).any(|arg| {
-        arg == "--register-native-host"
-            || arg == "--install-integration"
-            || arg == "/register"
+        arg == "--register-native-host" || arg == "--install-integration" || arg == "/register"
     })
 }
 

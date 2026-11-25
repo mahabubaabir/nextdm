@@ -31,7 +31,6 @@ export function UpdateManagerDialog({
   const [selectedRowId, setSelectedRowId] = useState<string>("desktop");
   const [checking, setChecking] = useState(false);
   const [latestTag, setLatestTag] = useState<string>("");
-  const [releaseUrl, setReleaseUrl] = useState<string>("");
   const [changelogBody, setChangelogBody] = useState<string>("");
   const [isInstalling, setIsInstalling] = useState(false);
   const [installStatus, setInstallStatus] = useState<string>("");
@@ -43,7 +42,7 @@ export function UpdateManagerDialog({
       description: "Next-gen segmented download manager core & UI",
       type: "package",
       currentVersion: currentVersion,
-      newVersion: "0.2.0",
+      newVersion: currentVersion,
       size: "14.2 MB",
       selected: true,
     },
@@ -53,7 +52,7 @@ export function UpdateManagerDialog({
       description: "Native messaging integration companion for Firefox & Chromium",
       type: "web",
       currentVersion: currentVersion,
-      newVersion: "0.2.0",
+      newVersion: currentVersion,
       size: "2.1 MB",
       selected: true,
     },
@@ -68,9 +67,8 @@ export function UpdateManagerDialog({
       });
       if (res.ok) {
         const data = await res.json();
-        const tag = (data.tag_name || "").replace(/^v/, "") || "0.2.0";
+        const tag = (data.tag_name || "").replace(/^v/, "") || currentVersion;
         setLatestTag(tag);
-        setReleaseUrl(data.html_url || "https://github.com/mahabubaabir/nextdm/releases");
         if (data.body) {
           setChangelogBody(data.body);
         }
@@ -116,12 +114,13 @@ export function UpdateManagerDialog({
     setIsInstalling(true);
     setInstallStatus("Launching Linux Mint Package Installer...");
     try {
-      await invoke("launch_package_installer", { version: latestTag || "0.2.0" });
+      await invoke("launch_package_installer", { version: latestTag || currentVersion });
       setInstallStatus("Package Installer opened! Follow system prompt to complete installation.");
       setIsInstalling(false);
     } catch {
-      // Fallback
-      const debUrl = releaseUrl || `https://github.com/mahabubaabir/nextdm/releases/download/v${latestTag || "0.2.0"}/NextDM_${latestTag || "0.2.0"}_amd64.deb`;
+      // Fallback: open the direct .deb asset, not the release web page.
+      const version = latestTag || currentVersion;
+      const debUrl = `https://github.com/mahabubaabir/nextdm/releases/download/v${version}/NextDM_${version}_amd64.deb`;
       await openUrl(debUrl);
       setInstallStatus("Package downloaded. Open it to install.");
       setIsInstalling(false);
@@ -129,7 +128,7 @@ export function UpdateManagerDialog({
   };
 
   const defaultChangelog = `
-## NextDM v${latestTag || "0.2.0"} (2026-11-13)
+## NextDM v${latestTag || currentVersion} (2026-11-23)
 
 ### 🎬 Embedded Media Extraction & Download Engine Guard
 - Deep DOM embedded video detection for Wistia, Vimeo, Loom, YouTube iframes, and active HLS/DASH streams.
@@ -574,17 +573,17 @@ export function UpdateManagerDialog({
                     <tr style={{ borderBottom: "1px solid #2a2a2a" }}>
                       <td style={{ padding: "6px 8px", fontWeight: 600 }}>nextdm-desktop</td>
                       <td style={{ padding: "6px 8px", color: "#888" }}>{currentVersion}</td>
-                      <td style={{ padding: "6px 8px", color: "#87c375" }}>{latestTag || "0.2.0"}</td>
+                      <td style={{ padding: "6px 8px", color: "#87c375" }}>{latestTag || currentVersion}</td>
                     </tr>
                     <tr style={{ borderBottom: "1px solid #2a2a2a" }}>
                       <td style={{ padding: "6px 8px", fontWeight: 600 }}>nextdm-browser-host</td>
                       <td style={{ padding: "6px 8px", color: "#888" }}>{currentVersion}</td>
-                      <td style={{ padding: "6px 8px", color: "#87c375" }}>{latestTag || "0.2.0"}</td>
+                      <td style={{ padding: "6px 8px", color: "#87c375" }}>{latestTag || currentVersion}</td>
                     </tr>
                     <tr>
                       <td style={{ padding: "6px 8px", fontWeight: 600 }}>nextdm-media</td>
                       <td style={{ padding: "6px 8px", color: "#888" }}>{currentVersion}</td>
-                      <td style={{ padding: "6px 8px", color: "#87c375" }}>{latestTag || "0.2.0"}</td>
+                      <td style={{ padding: "6px 8px", color: "#87c375" }}>{latestTag || currentVersion}</td>
                     </tr>
                   </tbody>
                 </table>

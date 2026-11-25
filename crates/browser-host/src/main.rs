@@ -6,4 +6,3 @@
 fn main() {
     std::process::exit(nextdm_browser_host::run_native_host());
 }
-

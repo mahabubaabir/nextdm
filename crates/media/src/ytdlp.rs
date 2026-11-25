@@ -7,7 +7,7 @@ use serde::Deserialize;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
-use crate::{configure_command, yt_dlp_path, MediaFormat, MediaInfo};
+use crate::{MediaFormat, MediaInfo, configure_command, yt_dlp_path};
 
 #[derive(Debug, thiserror::Error)]
 pub enum MediaError {
@@ -78,9 +78,7 @@ fn clean_ytdlp_error(stderr: &str) -> String {
         .lines()
         .map(|l| l.trim())
         .filter(|l| {
-            !l.is_empty()
-                && !l.starts_with("Deprecated Feature:")
-                && !l.starts_with("WARNING:")
+            !l.is_empty() && !l.starts_with("Deprecated Feature:") && !l.starts_with("WARNING:")
         })
         .collect();
 
@@ -106,16 +104,13 @@ pub async fn probe(url: &str, cookies: Option<&str>) -> Result<MediaInfo> {
     }
     cmd.arg(clean_url);
     cmd.stdin(Stdio::null());
-    let output = cmd
-        .output()
-        .await
-        .map_err(|error| {
-            if error.kind() == std::io::ErrorKind::NotFound {
-                MediaError::Missing
-            } else {
-                MediaError::Io(error)
-            }
-        })?;
+    let output = cmd.output().await.map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            MediaError::Missing
+        } else {
+            MediaError::Io(error)
+        }
+    })?;
 
     if !output.status.success() {
         let message = String::from_utf8_lossy(&output.stderr);
@@ -189,7 +184,8 @@ pub async fn probe(url: &str, cookies: Option<&str>) -> Result<MediaInfo> {
         }
 
         let vcodec_lower = vcodec_str.to_lowercase();
-        let video_codec_name = if vcodec_lower.starts_with("avc1") || vcodec_lower.contains("h264") {
+        let video_codec_name = if vcodec_lower.starts_with("avc1") || vcodec_lower.contains("h264")
+        {
             "H.264"
         } else if vcodec_lower.starts_with("av01") || vcodec_lower.contains("av1") {
             "AV1"
@@ -201,7 +197,10 @@ pub async fn probe(url: &str, cookies: Option<&str>) -> Result<MediaInfo> {
             || vcodec_lower.contains("hevc")
         {
             "HEVC"
-        } else if format.format_id == "hd" || format.format_id == "sd" || (has_video && ext_lower == "mp4") {
+        } else if format.format_id == "hd"
+            || format.format_id == "sd"
+            || (has_video && ext_lower == "mp4")
+        {
             "H.264"
         } else {
             ""
@@ -223,7 +222,12 @@ pub async fn probe(url: &str, cookies: Option<&str>) -> Result<MediaInfo> {
         };
 
         let kind = if has_video { "video" } else { "audio" };
-        let base_label = match (has_video, height, format.format_id.as_str(), &format.format_note) {
+        let base_label = match (
+            has_video,
+            height,
+            format.format_id.as_str(),
+            &format.format_note,
+        ) {
             (true, _, "hd", _) => "HD 720p".to_string(),
             (true, _, "sd", _) => "SD 360p".to_string(),
             (true, 2160, _, _) => "2160p 4K".to_string(),
@@ -257,7 +261,11 @@ pub async fn probe(url: &str, cookies: Option<&str>) -> Result<MediaInfo> {
             extension: ext,
             kind: kind.to_string(),
             width: format.width,
-            height: if height > 0 { Some(height) } else { format.height },
+            height: if height > 0 {
+                Some(height)
+            } else {
+                format.height
+            },
             fps: format.fps,
             filesize,
             bitrate,
@@ -356,6 +364,31 @@ pub async fn download_with_progress<F>(
     output_dir: &Path,
     file_stem: Option<&str>,
     cookies: Option<&str>,
+    on_progress: F,
+) -> Result<PathBuf>
+where
+    F: FnMut(u64, Option<u64>, u64, Option<u64>) + Send + 'static,
+{
+    download_media_with_progress(
+        url,
+        format_id,
+        output_dir,
+        file_stem,
+        cookies,
+        false,
+        on_progress,
+    )
+    .await
+}
+
+/// Download a media URL with yt-dlp with live progress callbacks and audio-only support.
+pub async fn download_media_with_progress<F>(
+    url: &str,
+    format_id: Option<&str>,
+    output_dir: &Path,
+    file_stem: Option<&str>,
+    cookies: Option<&str>,
+    audio_only: bool,
     mut on_progress: F,
 ) -> Result<PathBuf>
 where
@@ -363,7 +396,7 @@ where
 {
     tokio::fs::create_dir_all(output_dir).await?;
 
-    let template = match file_stem {
+    let template = match file_stem.map(str::trim).filter(|stem| !stem.is_empty()) {
         Some(stem) => output_dir
             .join(format!("{} [%(id)s].%(ext)s", sanitize_stem(stem)))
             .to_string_lossy()
@@ -374,11 +407,13 @@ where
             .to_string(),
     };
 
-    let format = match format_id {
-        Some(id) if !id.is_empty() => {
+    let format = match (audio_only, format_id.map(str::trim).filter(|id| !id.is_empty())) {
+        (true, Some(id)) => format!("{id}/bestaudio/best"),
+        (true, None) => "ba[acodec^=mp4a]/ba[ext=m4a]/bestaudio/best".to_string(),
+        (false, Some(id)) => {
             format!("{id}+ba[acodec^=mp4a]/{id}+ba[ext=m4a]/{id}+ba/{id}/best")
         }
-        _ => {
+        (false, None) => {
             "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/bv*[vcodec^=avc1]+ba[ext=m4a]/bv*[vcodec^=avc1]+ba/b[vcodec^=avc1]/best[ext=mp4]/bv*+ba/b".to_string()
         }
     };
@@ -388,18 +423,24 @@ where
     cmd.arg("--no-playlist")
         .arg("--no-warnings")
         .arg("--newline")
+        .arg("--no-quiet");
+
+    if !audio_only {
         // Prefer universally playable H.264 video and AAC audio across all platforms
-        .arg("-S")
-        .arg("vcodec:h264,vcodec:vp9,res,acodec:m4a,acodec:aac")
-        // Always produce standard MP4 container
-        .arg("--merge-output-format")
-        .arg("mp4")
-        .arg("--remux-video")
-        .arg("mp4")
-        // Ensure any merged audio in MP4 is standardized to stereo AAC (replaces incompatible Opus),
-        // and add faststart so the file begins playing immediately without waiting for whole-file index
-        .arg("--postprocessor-args")
-        .arg("Merger+ffmpeg_o:-c:v copy -c:a aac -b:a 192k -movflags +faststart VideoConvertor+ffmpeg_o:-c:v copy -c:a aac -b:a 192k -movflags +faststart");
+        cmd.arg("-S")
+            .arg("vcodec:h264,vcodec:vp9,res,acodec:m4a,acodec:aac")
+            // Always produce standard MP4 container
+            .arg("--merge-output-format")
+            .arg("mp4")
+            .arg("--remux-video")
+            .arg("mp4")
+            // Pass each postprocessor directive as a separate argument so yt-dlp strips
+            // each prefix instead of passing another directive literally to ffmpeg.
+            .arg("--postprocessor-args")
+            .arg("Merger+ffmpeg_o:-c:v copy -c:a aac -b:a 192k -movflags +faststart")
+            .arg("--postprocessor-args")
+            .arg("VideoRemuxer+ffmpeg_o:-c:v copy -c:a aac -b:a 192k -movflags +faststart");
+    }
 
     if !is_youtube_url(url) {
         if let Some(cookie_str) = cookies.filter(|c| !c.trim().is_empty()) {
@@ -413,8 +454,8 @@ where
         .arg(template)
         .arg("--progress-template")
         .arg("download:PROGRESS:%(progress.downloaded_bytes)s:%(progress.total_bytes)s:%(progress.total_bytes_estimate)s:%(progress.speed)s:%(progress.eta)s")
-        .arg("--exec")
-        .arg("echo FINISHED:{}")
+        .arg("--print")
+        .arg("after_move:FINISHED:%(filepath)s")
         .arg(url)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -444,8 +485,7 @@ where
             buffer.push_str(&line);
             buffer.push('\n');
             if buffer.len() > 4000 {
-                let start = buffer.len() - 4000;
-                buffer = buffer[start..].to_string();
+                buffer = tail_bytes(&buffer, 4000).to_string();
             }
         }
         buffer
@@ -513,23 +553,62 @@ where
         }
     }
 
-    Err(MediaError::Failed("yt-dlp reported success but no output file was detected".into()))
+    Err(MediaError::Failed(
+        "yt-dlp reported success but no output file was detected".into(),
+    ))
 }
 
 fn sanitize_stem(name: &str) -> String {
-    name.chars()
+    let cleaned: String = name
+        .chars()
+        .filter(|character| !character.is_control())
         .map(|character| match character {
             '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
             character => character,
         })
         .take(160)
-        .collect()
+        .collect();
+    let trimmed = cleaned.trim().trim_matches('.');
+    if trimmed.is_empty() {
+        "media".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn tail_bytes(value: &str, limit: usize) -> &str {
+    if value.len() <= limit {
+        return value;
+    }
+    let mut start = value.len() - limit;
+    while !value.is_char_boundary(start) {
+        start += 1;
+    }
+    &value[start..]
 }
 
 fn tail(value: &str, limit: usize) -> String {
     if value.len() <= limit {
         return value.trim().to_string();
     }
-    let start = value.len() - limit;
-    format!("…{}", value[start..].trim())
+    format!("…{}", tail_bytes(value, limit).trim())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitize_stem_strips_illegal_chars_and_falls_back() {
+        assert_eq!(sanitize_stem("a/b:c*d?\"<>|"), "a_b_c_d_____");
+        assert_eq!(sanitize_stem("  ...\n\t "), "media");
+    }
+
+    #[test]
+    fn tail_respects_utf8_char_boundaries() {
+        let sample = "prefix-বাংলা-টুকরো-end";
+        let truncated = tail(sample, 10);
+        assert!(truncated.starts_with('…'));
+        assert!(!tail_bytes(sample, 10).is_empty());
+    }
 }

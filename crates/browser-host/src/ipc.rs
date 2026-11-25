@@ -92,8 +92,7 @@ fn round_trip_io<S: io::Read + io::Write>(
             "NextDM closed the connection without a response",
         ));
     }
-    serde_json::from_str(line)
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
+    serde_json::from_str(line).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
 }
 
 /// Quick liveness check for the local app socket.
@@ -126,7 +125,9 @@ mod tests {
             assert!(matches!(request, HostRequest::Ping));
 
             let mut writer = stream;
-            writer.write_all(br#"{"ok":true,"version":"0.1.0"}"#).unwrap();
+            writer
+                .write_all(br#"{"ok":true,"version":"0.1.0"}"#)
+                .unwrap();
             writer.write_all(b"\n").unwrap();
             writer.flush().unwrap();
         });

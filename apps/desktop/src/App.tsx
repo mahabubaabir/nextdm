@@ -21,7 +21,7 @@ import { AboutView } from "./components/AboutView";
 import { UpdateManagerDialog } from "./components/UpdateManagerDialog";
 import { Modal } from "./components/Modal";
 import { Logo } from "./components/Icons";
-import { DEFAULT_SETTINGS, categoryLabel, cx, isDownloadableUrl, isMediaSiteUrl, isProbablyUrl } from "./lib";
+import { DEFAULT_SETTINGS, categoryLabel, cx, isDownloadableUrl, isMediaSiteUrl, isProbablyUrl, readSettings } from "./lib";
 import type {
   DownloadInfo,
   EngineEvent,
@@ -49,28 +49,6 @@ function upsert(list: DownloadInfo[], download: DownloadInfo): DownloadInfo[] {
   const copy = list.slice();
   copy[index] = { ...copy[index], ...download };
   return copy;
-}
-
-function readSettings(raw: Record<string, unknown>, defaultDir: string): Settings {
-  const theme =
-    raw.theme === "dark" || raw.theme === "glass" || raw.theme === "material3" || raw.theme === "system"
-      ? (raw.theme as Settings["theme"])
-      : "classic";
-  return {
-    theme,
-    defaultDir: typeof raw.default_dir === "string" ? raw.default_dir : defaultDir,
-    categoryRouting: raw.category_routing === undefined ? true : Boolean(raw.category_routing),
-    maxConnections: Number(raw.max_connections) || DEFAULT_SETTINGS.maxConnections,
-    speedLimit: Number(raw.speed_limit) || 0,
-    clipboardMonitor: Boolean(raw.clipboard_monitor),
-    notifications: raw.notifications === undefined ? true : Boolean(raw.notifications),
-    confirmRemove: raw.confirm_remove === undefined ? true : Boolean(raw.confirm_remove),
-    autoResume: raw.auto_resume === undefined ? true : Boolean(raw.auto_resume),
-    closeToTray: raw.close_to_tray === undefined ? true : Boolean(raw.close_to_tray),
-    videoBadgeStyle: raw.video_badge_style === "full" ? "full" : "compact",
-    compactView: Boolean(raw.compact_view),
-    autostart: true,
-  };
 }
 
 function copyText(text: string): Promise<void> {
@@ -113,8 +91,9 @@ function App() {
   const [clipboardDetectedUrl, setClipboardDetectedUrl] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; download: DownloadInfo } | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
-  const [engineVersion, setEngineVersion] = useState("0.2.2");
+  const [engineVersion, setEngineVersion] = useState("0.2.3");
 
+  const engineVersionRef = useRef(engineVersion);
   const lastSelected = useRef<string | null>(null);
   const settingsRef = useRef(settings);
   const themeBackup = useRef<Settings["theme"]>("classic");
@@ -125,6 +104,10 @@ function App() {
   useEffect(() => {
     settingsRef.current = settings;
   }, [settings]);
+
+  useEffect(() => {
+    engineVersionRef.current = engineVersion;
+  }, [engineVersion]);
 
   useEffect(() => {
     dialogRef.current = dialog;
@@ -151,7 +134,9 @@ function App() {
     let disposed = false;
     let unlisten: (() => void) | undefined;
     let unlistenBrowser: (() => void) | undefined;
+    let unlistenBrowserError: (() => void) | undefined;
     let unlistenMediaGrab: (() => void) | undefined;
+    let unlistenMediaStatus: (() => void) | undefined;
 
     (async () => {
       try {
@@ -221,12 +206,23 @@ function App() {
           setActiveProgressId(event.payload.id);
         });
 
+        unlistenBrowserError = await listen<{ url?: string; error?: string }>("browser://download_error", (event) => {
+          const message = event.payload?.error || "Browser download could not be queued.";
+          notify("error", message);
+        });
+
         unlistenMediaGrab = await listen<{ url: string; title?: string; cookies?: string }>("browser://media_grab", (event) => {
           const { url, cookies } = event.payload;
           if (url) {
             setMediaDialogCookies(cookies || "");
             setMediaDialogUrl(url);
             setDialog("media");
+          }
+        });
+
+        unlistenMediaStatus = await listen<{ phase?: string; message?: string }>("media://status", (event) => {
+          if (event.payload?.phase === "error") {
+            notify("error", event.payload.message || "Media download failed.");
           }
         });
       } catch {
@@ -238,7 +234,9 @@ function App() {
       disposed = true;
       unlisten?.();
       unlistenBrowser?.();
+      unlistenBrowserError?.();
       unlistenMediaGrab?.();
+      unlistenMediaStatus?.();
     };
   }, [notify]);
 
@@ -287,7 +285,7 @@ function App() {
         if (!res.ok) return;
         const data = await res.json();
         const tag = (data.tag_name || "").replace(/^v/, "");
-        const current = "0.2.0";
+        const current = engineVersionRef.current;
         const tagParts = tag.split(".").map(Number);
         const curParts = current.split(".").map(Number);
         let isNewer = false;
@@ -500,6 +498,8 @@ function App() {
     fileStem: string,
     expectedSize?: number | null,
     cookies?: string | null,
+    formatKind?: string | null,
+    extension?: string | null,
   ) => {
     notify("info", `Downloading media: ${fileStem || "video"}...`);
     invoke<DownloadInfo>("media_download", {
@@ -509,6 +509,8 @@ function App() {
       directory: settings.defaultDir || null,
       expectedSize: expectedSize ?? null,
       cookies: cookies || mediaDialogCookies || null,
+      formatKind: formatKind ?? null,
+      extension: extension ?? null,
     })
       .then((info) => {
         setDownloads((current) => upsert(current, info));
@@ -969,6 +971,10 @@ function App() {
         engineVersion={engineVersion}
         onClose={closeOptions}
         onSave={saveOptions}
+        onSettingsImported={(next) => {
+          setSettings(next);
+          notify("success", "Settings restored from backup.");
+        }}
         onPreviewTheme={(theme) => setSettings((current) => ({ ...current, theme }))}
         onOpenUpdateManager={() => {
           closeOptions();

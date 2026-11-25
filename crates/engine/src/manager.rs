@@ -2,8 +2,8 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use chrono::Utc;
@@ -19,6 +19,16 @@ use crate::storage::{DownloadRecord, Storage};
 use crate::types::{
     DownloadInfo, DownloadSpec, DownloadStatus, EngineConfig, EngineEvent, EngineStats, Segment,
 };
+
+const MEDIA_INTERRUPTED_MESSAGE: &str = "Media download was interrupted by an app restart or update. Please start it again from the Video Extractor.";
+
+/// Media jobs are produced by yt-dlp, not by the segmented HTTP engine.
+/// Databases written before the `media` flag existed are recognised by their
+/// empty segment list: the HTTP engine always stores at least one segment for
+/// an unfinished download.
+fn is_media_record(record: &DownloadRecord) -> bool {
+    record.media || (record.segments.is_empty() && record.status != DownloadStatus::Completed)
+}
 
 pub fn category_subfolder(category: &str) -> &'static str {
     match category {
@@ -269,6 +279,7 @@ impl Engine {
                 DownloadStatus::Queued
             },
             resumable: probe.resumable,
+            media: false,
             etag: probe.etag,
             last_modified: probe.last_modified,
             content_type: probe.content_type,
@@ -305,11 +316,10 @@ impl Engine {
 
     /// Start (or continue) a download.
     pub fn start(&self, id: Uuid) -> Result<()> {
-        let record = self
-            .inner
-            .store
-            .get(id)?
-            .ok_or(Error::NotFound(id))?;
+        let record = self.inner.store.get(id)?.ok_or(Error::NotFound(id))?;
+        if is_media_record(&record) {
+            return Err(Error::message(MEDIA_INTERRUPTED_MESSAGE));
+        }
         if record.status == DownloadStatus::Completed {
             return Ok(());
         }
@@ -360,11 +370,7 @@ impl Engine {
     }
 
     pub fn pause(&self, id: Uuid) -> Result<()> {
-        let mut record = self
-            .inner
-            .store
-            .get(id)?
-            .ok_or(Error::NotFound(id))?;
+        let mut record = self.inner.store.get(id)?.ok_or(Error::NotFound(id))?;
         if record.status.is_terminal() {
             return Ok(());
         }
@@ -382,11 +388,14 @@ impl Engine {
     }
 
     pub fn resume(&self, id: Uuid) -> Result<()> {
-        let mut record = self
-            .inner
-            .store
-            .get(id)?
-            .ok_or(Error::NotFound(id))?;
+        let mut record = self.inner.store.get(id)?.ok_or(Error::NotFound(id))?;
+        if is_media_record(&record) {
+            record.status = DownloadStatus::Error;
+            record.error = Some(MEDIA_INTERRUPTED_MESSAGE.to_string());
+            self.inner.save(&record)?;
+            self.inner.emit_updated(&record);
+            return Err(Error::message(MEDIA_INTERRUPTED_MESSAGE));
+        }
         if record.status == DownloadStatus::Completed {
             return Ok(());
         }
@@ -501,7 +510,10 @@ impl Engine {
 
     pub fn list(&self) -> Result<Vec<DownloadInfo>> {
         let records = self.inner.store.list()?;
-        Ok(records.into_iter().map(|record| self.decorate(record)).collect())
+        Ok(records
+            .into_iter()
+            .map(|record| self.decorate(record))
+            .collect())
     }
 
     fn decorate(&self, record: DownloadRecord) -> DownloadInfo {
@@ -541,14 +553,27 @@ impl Engine {
     pub fn resume_pending(&self) -> Result<usize> {
         let records = self.inner.store.list()?;
         let mut started = 0;
-        for record in records {
-            if matches!(
+        for mut record in records {
+            if !matches!(
                 record.status,
                 DownloadStatus::Queued | DownloadStatus::Connecting | DownloadStatus::Downloading
             ) {
-                self.start(record.id)?;
-                started += 1;
+                continue;
             }
+
+            // Media downloads are produced by yt-dlp and cannot be restarted
+            // by the segmented HTTP engine. Older databases also have no media
+            // flag, so treat active records without segments as media too.
+            if is_media_record(&record) {
+                record.status = DownloadStatus::Error;
+                record.error = Some(MEDIA_INTERRUPTED_MESSAGE.to_string());
+                self.inner.save(&record)?;
+                self.inner.emit_updated(&record);
+                continue;
+            }
+
+            self.start(record.id)?;
+            started += 1;
         }
         Ok(started)
     }
@@ -618,6 +643,7 @@ impl Engine {
             downloaded: metadata.len(),
             status: DownloadStatus::Completed,
             resumable: false,
+            media: false,
             etag: None,
             last_modified: None,
             content_type: None,
@@ -653,6 +679,10 @@ impl Engine {
         directory: PathBuf,
         expected_size: Option<u64>,
     ) -> Result<DownloadInfo> {
+        // Media titles often contain characters such as `/` that are illegal
+        // in a path component. Sanitize before building the temp path.
+        let file_name = download::sanitize_file_name(&file_name);
+        std::fs::create_dir_all(&directory)?;
         let temp_path = download::temp_path_for(&directory.join(&file_name));
         let now = Utc::now();
         let record = DownloadRecord {
@@ -666,6 +696,7 @@ impl Engine {
             downloaded: 0,
             status: DownloadStatus::Downloading,
             resumable: false,
+            media: true,
             etag: None,
             last_modified: None,
             content_type: Some("video/mp4".to_string()),
@@ -699,7 +730,13 @@ impl Engine {
         speed: u64,
         eta: Option<u64>,
     ) -> Result<()> {
+        if self.inner.is_removed(id) {
+            return Ok(());
+        }
         if let Some(mut record) = self.inner.store.get(id)? {
+            if record.status == DownloadStatus::Cancelled {
+                return Ok(());
+            }
             record.downloaded = downloaded;
             if let Some(t) = total {
                 if t > 0 {
@@ -722,6 +759,19 @@ impl Engine {
 
     /// Mark the media download as completed with the final produced file.
     pub fn complete_media_download(&self, id: Uuid, final_path: PathBuf) -> Result<DownloadInfo> {
+        if self.inner.is_removed(id) {
+            return Err(Error::message("media download was removed"));
+        }
+        let mut record = match self.inner.store.get(id)? {
+            Some(record) => record,
+            None => {
+                return Err(Error::message("media download no longer exists"));
+            }
+        };
+        if record.status == DownloadStatus::Cancelled {
+            return Err(Error::message("media download was cancelled"));
+        }
+
         let metadata = std::fs::metadata(&final_path)?;
         let file_name = final_path
             .file_name()
@@ -733,15 +783,9 @@ impl Engine {
             .unwrap_or_else(|| self.inner.default_dir.lock().clone());
         let now = Utc::now();
 
-        let mut record = match self.inner.store.get(id)? {
-            Some(record) => record,
-            None => {
-                return self.register_completed_file(final_path, String::new());
-            }
-        };
-
         record.file_name = file_name;
         record.directory = directory;
+        record.category = download::classify(&record.file_name).to_string();
         record.total_size = Some(metadata.len());
         record.downloaded = metadata.len();
         record.status = DownloadStatus::Completed;
@@ -761,7 +805,13 @@ impl Engine {
 
     /// Mark the media download as failed.
     pub fn fail_media_download(&self, id: Uuid, error_message: String) -> Result<()> {
+        if self.inner.is_removed(id) {
+            return Ok(());
+        }
         if let Some(mut record) = self.inner.store.get(id)? {
+            if record.status == DownloadStatus::Cancelled {
+                return Ok(());
+            }
             record.status = DownloadStatus::Error;
             record.error = Some(error_message);
             self.inner.save(&record)?;
@@ -787,6 +837,14 @@ async fn run_download(inner: Arc<Inner>, id: Uuid) -> Result<()> {
         Some(record) => record,
         None => return Ok(()),
     };
+    if is_media_record(&record) {
+        finish_failed(
+            &inner,
+            &mut record,
+            Error::message(MEDIA_INTERRUPTED_MESSAGE),
+        )?;
+        return Ok(());
+    }
     let control = inner
         .controls
         .lock()

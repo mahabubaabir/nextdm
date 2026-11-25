@@ -51,7 +51,9 @@ pub fn default_yt_dlp_install_path() -> Result<PathBuf, String> {
     {
         let local_app_data = std::env::var_os("LOCALAPPDATA")
             .map(PathBuf::from)
-            .or_else(|| std::env::var_os("USERPROFILE").map(|u| PathBuf::from(u).join(r"AppData\Local")))
+            .or_else(|| {
+                std::env::var_os("USERPROFILE").map(|u| PathBuf::from(u).join(r"AppData\Local"))
+            })
             .ok_or_else(|| "Could not determine LOCALAPPDATA directory".to_string())?;
         let bin_dir = local_app_data.join("nextdm").join("bin");
         std::fs::create_dir_all(&bin_dir).map_err(|e| e.to_string())?;
@@ -355,7 +357,10 @@ pub async fn install_yt_dlp() -> Result<String, String> {
         .await
         .map_err(|e| format!("Failed to save yt-dlp binary to target path: {e}"))?;
 
-    Ok(format!("yt-dlp successfully installed to {}", target_path.display()))
+    Ok(format!(
+        "yt-dlp successfully installed to {}",
+        target_path.display()
+    ))
 }
 
 #[cfg(test)]
@@ -397,7 +402,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_yt_dlp_probe_youtube_shorts() {
-        let res = ytdlp::probe("https://www.youtube.com/shorts/cnpeI6vKwyc", Some("test=123")).await;
+        let res = ytdlp::probe(
+            "https://www.youtube.com/shorts/cnpeI6vKwyc",
+            Some("test=123"),
+        )
+        .await;
         match res {
             Ok(info) => {
                 println!("Probed shorts title: {}", info.title);
@@ -408,5 +417,35 @@ mod tests {
                 panic!("Shorts probe failed: {:?}", e);
             }
         }
+    }
+
+    struct TempDirGuard(std::path::PathBuf);
+
+    impl Drop for TempDirGuard {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_yt_dlp_download_youtube_shorts_merges_cleanly() {
+        let temp = TempDirGuard(
+            std::env::temp_dir().join(format!("nextdm-media-test-{}", uuid::Uuid::new_v4())),
+        );
+        let path = ytdlp::download_with_progress(
+            "https://www.youtube.com/shorts/cnpeI6vKwyc",
+            None,
+            &temp.0,
+            Some("test/short:sample"),
+            None,
+            |_, _, _, _| {},
+        )
+        .await
+        .expect("merged YouTube Shorts download should succeed");
+
+        assert!(path.is_file(), "expected output file at {}", path.display());
+        assert_eq!(path.extension().and_then(|e| e.to_str()), Some("mp4"));
+        let size = std::fs::metadata(&path).expect("output metadata").len();
+        assert!(size > 0, "downloaded MP4 should not be empty");
     }
 }

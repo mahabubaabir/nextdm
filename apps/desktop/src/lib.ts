@@ -26,6 +26,28 @@ export const DEFAULT_SETTINGS: Settings = {
   autostart: true,
 };
 
+export function readSettings(raw: Record<string, unknown>, defaultDir: string): Settings {
+  const theme =
+    raw.theme === "dark" || raw.theme === "glass" || raw.theme === "material3" || raw.theme === "system"
+      ? (raw.theme as Settings["theme"])
+      : "classic";
+  return {
+    theme,
+    defaultDir: typeof raw.default_dir === "string" ? raw.default_dir : defaultDir,
+    categoryRouting: raw.category_routing === undefined ? true : Boolean(raw.category_routing),
+    maxConnections: Number(raw.max_connections) || DEFAULT_SETTINGS.maxConnections,
+    speedLimit: Number(raw.speed_limit) || 0,
+    clipboardMonitor: Boolean(raw.clipboard_monitor),
+    notifications: raw.notifications === undefined ? true : Boolean(raw.notifications),
+    confirmRemove: raw.confirm_remove === undefined ? true : Boolean(raw.confirm_remove),
+    autoResume: raw.auto_resume === undefined ? true : Boolean(raw.auto_resume),
+    closeToTray: raw.close_to_tray === undefined ? true : Boolean(raw.close_to_tray),
+    videoBadgeStyle: raw.video_badge_style === "full" ? "full" : "compact",
+    compactView: Boolean(raw.compact_view),
+    autostart: true,
+  };
+}
+
 export function categorySubfolder(category: string): string {
   switch (category?.toLowerCase()) {
     case "video":

@@ -8,15 +8,14 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use include_dir::{include_dir, Dir};
+use include_dir::{Dir, include_dir};
 use nextdm_browser_host::{
-    ChromiumManifest, FirefoxManifest, CHROMIUM_EXTENSION_ID, FIREFOX_EXTENSION_ID, HOST_NAME,
+    CHROMIUM_EXTENSION_ID, ChromiumManifest, FIREFOX_EXTENSION_ID, FirefoxManifest, HOST_NAME,
 };
 
 static CHROMIUM_EXTENSION: Dir<'_> =
     include_dir!("$CARGO_MANIFEST_DIR/../../../extensions/chromium");
-static FIREFOX_EXTENSION: Dir<'_> =
-    include_dir!("$CARGO_MANIFEST_DIR/../../../extensions/firefox");
+static FIREFOX_EXTENSION: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../../extensions/firefox");
 
 static CHROME_ZIP: &[u8] = include_bytes!("../extensions/nextdm-chromium.zip");
 static FIREFOX_ZIP: &[u8] = include_bytes!("../extensions/nextdm-firefox.xpi");
@@ -69,10 +68,12 @@ pub fn is_host_installed() -> bool {
                 return true;
             }
         }
-        if home
-            .join(".mozilla/native-messaging-hosts")
-            .join(format!("{HOST_NAME}.json"))
-            .is_file()
+        if [
+            ".mozilla/native-messaging-hosts",
+            ".config/mozilla/native-messaging-hosts",
+        ]
+        .iter()
+        .any(|rel| home.join(rel).join(format!("{HOST_NAME}.json")).is_file())
         {
             return true;
         }
@@ -229,17 +230,22 @@ pub fn install(
         let json = serde_json::to_string_pretty(&manifest).map_err(stringify)?;
 
         #[cfg(unix)]
-        let dir = home.join(".mozilla/native-messaging-hosts");
-        #[cfg(windows)]
-        let dir = std::env::var_os("APPDATA")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| home.join(r"AppData\Roaming"))
-            .join(r"Mozilla\NativeMessagingHosts");
-
-        write_manifest(&dir, &json)?;
-
+        {
+            for rel in [
+                ".mozilla/native-messaging-hosts",
+                ".config/mozilla/native-messaging-hosts",
+            ] {
+                write_manifest(&home.join(rel), &json)?;
+            }
+        }
         #[cfg(windows)]
         {
+            let dir = std::env::var_os("APPDATA")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| home.join(r"AppData\Roaming"))
+                .join(r"Mozilla\NativeMessagingHosts");
+
+            write_manifest(&dir, &json)?;
             let manifest_path = dir.join(format!("{HOST_NAME}.json"));
             register_windows_registry(
                 r"HKCU\Software\Mozilla\NativeMessagingHosts\com.nextdm.host",

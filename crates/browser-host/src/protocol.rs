@@ -166,7 +166,9 @@ mod tests {
         )
         .unwrap();
         match request {
-            HostRequest::AddDownload { is_media, filename, .. } => {
+            HostRequest::AddDownload {
+                is_media, filename, ..
+            } => {
                 assert!(is_media);
                 assert_eq!(filename.as_deref(), Some("test.mp4"));
             }

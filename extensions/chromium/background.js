@@ -5,9 +5,52 @@
  */
 
 const HOST_NAME = "com.nextdm.host";
-const OWN_EXTENSION_ID = "ciljeaclhfhipchfaocjmoanpbacibli";
+const OWN_EXTENSION_ID = (chrome.runtime && chrome.runtime.id) || "ciljeaclhfhipchfaocjmoanpbacibli";
 const reopening = new Set();
 const tabMediaStreams = new Map();
+
+function hasHostAccess() {
+  return new Promise((resolve) => {
+    if (!chrome.permissions || !chrome.permissions.contains) {
+      resolve(true);
+      return;
+    }
+    chrome.permissions.contains({ origins: ["<all_urls>"] }, (granted) => {
+      if (chrome.runtime.lastError) {
+        resolve(true);
+        return;
+      }
+      resolve(Boolean(granted));
+    });
+  });
+}
+
+async function refreshPermissionBadge() {
+  const granted = await hasHostAccess();
+  try {
+    if (!granted) {
+      await chrome.action.setBadgeBackgroundColor({ color: "#d93025" });
+      await chrome.action.setBadgeText({ text: "!" });
+    } else {
+      chrome.action.getBadgeText({}, (text) => {
+        if (text === "!") {
+          chrome.action.setBadgeText({ text: "" });
+        }
+      });
+    }
+  } catch (error) {
+    /* badge is best effort */
+  }
+  return granted;
+}
+
+if (chrome.permissions && chrome.permissions.onAdded) {
+  chrome.permissions.onAdded.addListener(() => void refreshPermissionBadge());
+}
+if (chrome.permissions && chrome.permissions.onRemoved) {
+  chrome.permissions.onRemoved.addListener(() => void refreshPermissionBadge());
+}
+void refreshPermissionBadge();
 
 if (typeof chrome !== "undefined" && chrome.webRequest && chrome.webRequest.onBeforeRequest) {
   try {
@@ -102,9 +145,11 @@ function activeTabUrl() {
 
 function flashBadge(text) {
   try {
-    chrome.action.setBadgeBackgroundColor({ color: "#1f6fdd" });
+    chrome.action.setBadgeBackgroundColor({ color: text === "!" ? "#d93025" : "#1f6fdd" });
     chrome.action.setBadgeText({ text });
-    setTimeout(() => chrome.action.setBadgeText({ text: "" }), 2500);
+    setTimeout(() => {
+      chrome.action.setBadgeText({ text: "" }, () => void refreshPermissionBadge());
+    }, 2500);
   } catch (error) {
     /* badge is best effort */
   }
@@ -149,7 +194,7 @@ async function handoff({ url, filename, referrer, isMedia }) {
   let pageUrl = referrer || null;
   if (!pageUrl) pageUrl = await activeTabUrl();
 
-  const isMediaDownload = Boolean(isMedia) || isMediaSite(url) || (pageUrl && isMediaSite(pageUrl));
+  const isMediaDownload = Boolean(isMedia) || isMediaSite(url);
 
   await nativeMessage({
     type: "addDownload",
@@ -158,6 +203,7 @@ async function handoff({ url, filename, referrer, isMedia }) {
     fileName: filename || null,
     referrer: pageUrl,
     cookies,
+    userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
     headers: {},
     isMedia: isMediaDownload,
     is_media: isMediaDownload,
@@ -166,6 +212,7 @@ async function handoff({ url, filename, referrer, isMedia }) {
 }
 
 chrome.runtime.onInstalled.addListener(() => {
+  void refreshPermissionBadge();
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: "nextdm-download",
@@ -230,9 +277,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message) return undefined;
 
   if (message.type === "getStatus") {
-    nativeMessage({ type: "getVersion" })
-      .then((response) => sendResponse({ ok: true, version: response.version }))
+    Promise.all([
+      nativeMessage({ type: "getVersion" }).catch((error) => ({ __error: error.message })),
+      hasHostAccess(),
+    ]).then(([res, hasHostPermissions]) => {
+      if (res && !res.__error) {
+        sendResponse({ ok: true, version: res.version, hasHostPermissions });
+      } else {
+        sendResponse({
+          ok: false,
+          error: (res && res.__error) || "NextDM is not running",
+          hasHostPermissions,
+        });
+      }
+    });
+    return true;
+  }
+
+  if (message.type === "openApp") {
+    nativeMessage({ type: "showWindow" })
+      .then(() => sendResponse({ ok: true }))
       .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === "refreshPermissions") {
+    refreshPermissionBadge()
+      .then((hasHostPermissions) => sendResponse({ ok: true, hasHostPermissions }))
+      .catch(() => sendResponse({ ok: false, hasHostPermissions: true }));
     return true;
   }
 

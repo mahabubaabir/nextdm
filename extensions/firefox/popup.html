@@ -20,13 +20,21 @@
       <span>Take over browser downloads</span>
     </label>
 
+    <div id="perm-banner" class="perm-banner hidden">
+      <p>
+        Site access is required so NextDM can show video download buttons and forward cookies on protected links.
+      </p>
+      <button id="grant-access" class="primary">Enable Site Access</button>
+    </div>
+
     <p class="hint">
       Direct links are sent to NextDM with your cookies and referrer. If NextDM cannot be reached,
       the browser keeps the download.
     </p>
 
     <footer>
-      <button id="open-app">Open instructions</button>
+      <a id="open-help" href="https://github.com/mahabubaabir/nextdm" target="_blank" rel="noreferrer">Help</a>
+      <button id="open-app" class="primary">Open NextDM</button>
     </footer>
 
     <script src="popup.js"></script>

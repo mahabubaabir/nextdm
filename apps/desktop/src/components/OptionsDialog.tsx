@@ -5,7 +5,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { Modal } from "./Modal";
 import { Icon, type IconName } from "./Icons";
 import { AboutView } from "./AboutView";
-import { cx, DEFAULT_SETTINGS } from "../lib";
+import { cx, DEFAULT_SETTINGS, readSettings } from "../lib";
 import type { Settings } from "../types";
 
 type Tab = "general" | "downloads" | "connections" | "speed" | "media" | "browser" | "backup" | "advanced";
@@ -26,6 +26,7 @@ export function OptionsDialog({
   settings,
   onClose,
   onSave,
+  onSettingsImported,
   onPreviewTheme,
   onOpenUpdateManager,
   engineVersion,
@@ -34,6 +35,7 @@ export function OptionsDialog({
   settings: Settings;
   onClose: () => void;
   onSave: (settings: Settings) => void;
+  onSettingsImported?: (settings: Settings) => void;
   onPreviewTheme: (theme: Settings["theme"]) => void;
   onOpenUpdateManager?: () => void;
   engineVersion?: string;
@@ -155,11 +157,21 @@ export function OptionsDialog({
     setBackupMessage(null);
     try {
       const text = await file.text();
-      await invoke("import_settings_json", { jsonStr: text });
-      const parsed = JSON.parse(text);
-      const updated = { ...draft, ...parsed };
+      await invoke("import_settings_json", { json: text });
+      const [raw, defaultDir, autostart] = await Promise.all([
+        invoke<Record<string, unknown>>("get_settings"),
+        invoke<string>("default_download_dir").catch(() => draft.defaultDir),
+        invoke<boolean>("get_autostart").catch(() => draft.autostart),
+      ]);
+      const updated = { ...readSettings(raw, defaultDir), autostart: Boolean(autostart) };
       setDraft(updated);
-      onSave(updated);
+      setSpeedKb(Math.round((updated.speedLimit || 0) / 1024));
+      onPreviewTheme(updated.theme);
+      if (onSettingsImported) {
+        onSettingsImported(updated);
+      } else {
+        onSave(updated);
+      }
       setBackupMessage({ type: "success", text: "Settings successfully restored from backup!" });
     } catch (err) {
       setBackupMessage({ type: "error", text: `Import failed: ${String(err)}` });
@@ -671,7 +683,7 @@ export function OptionsDialog({
 
           {tab === "advanced" ? (
             <section className="option-section">
-              <AboutView engineVersion={engineVersion || "0.2.2"} onOpenUpdateManager={onOpenUpdateManager} />
+              <AboutView engineVersion={engineVersion || "0.2.3"} onOpenUpdateManager={onOpenUpdateManager} />
             </section>
           ) : null}
         </div>

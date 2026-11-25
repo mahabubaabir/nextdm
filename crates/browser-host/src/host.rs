@@ -68,14 +68,12 @@ fn handle(request: HostRequest) -> HostResponse {
         };
     }
 
-    if matches!(
-        request,
-        HostRequest::Ping | HostRequest::GetVersion | HostRequest::ShowWindow
-    ) {
+    if matches!(request, HostRequest::Ping | HostRequest::GetVersion) {
         return HostResponse::error("NextDM is not running");
     }
 
-    if let Err(error) = launch_app() {
+    let background = !matches!(request, HostRequest::ShowWindow);
+    if let Err(error) = launch_app(background) {
         return HostResponse::error(format!(
             "NextDM is not running and could not be started: {error}"
         ));
@@ -97,12 +95,14 @@ fn handle(request: HostRequest) -> HostResponse {
 }
 
 /// Start the desktop app detached from the browser process.
-fn launch_app() -> io::Result<()> {
+fn launch_app(background: bool) -> io::Result<()> {
     let executable = find_desktop_binary();
 
     let mut command = Command::new(executable);
+    if background {
+        command.arg("--background");
+    }
     command
-        .arg("--background")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null());

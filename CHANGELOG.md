@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.3] — 2026-11-25
+
+### 🛠 Fixed
+
+- **Fixed `yt-dlp` + `ffmpeg` Merge Crash:** Split `--postprocessor-args` into separate `Merger+ffmpeg_o` and `VideoRemuxer+ffmpeg_o` arguments so `yt-dlp` never passes a raw directive to `ffmpeg` (`Error opening output files: Invalid argument`), added proper `audio_only` handling without forced MP4 remuxing, replaced shell-quoted `--exec` with `--print after_move`, and made stderr/error tailing UTF-8 char-boundary safe.
+- **Category Routing & Media Lifecycle Guards:** `media_download` now honors `category_routing` (`Video/` vs `Music/`) and selected audio container extensions, while `complete_media_download`, `update_media_progress`, and `fail_media_download` prevent removed or cancelled media jobs from resurrecting or reverting to `Error`.
+- **Firefox XDG Native Host & MV3 Site Permissions:** Registered Firefox native messaging manifests in both `~/.mozilla/native-messaging-hosts` and Firefox 160+ XDG `~/.config/mozilla/native-messaging-hosts`, fixed Firefox `OWN_EXTENSION_ID`, stopped classifying normal file downloads triggered on media pages as media streams, forwarded `userAgent` on handoff, allowed popup `Open NextDM` to launch the app via `nextdm-host`, and added an in-popup **Enable Site Access** prompt when MV3 `<all_urls>` host permission is missing.
+- **Settings Backup Restore & Error Toasts:** Fixed `OptionsDialog` passing `{ jsonStr }` instead of `{ json }` to `import_settings_json` and reloaded normalized settings from `get_settings` instead of overwriting UI keys, and surfaced `media://status` errors and `browser://download_error` notifications in `App.tsx`.
+- **Media Downloads No Longer Resume as HTTP:** Downloads started from the Video Extractor (`yt-dlp`) are tagged as media jobs in the database and fail cleanly after restart/update with an explanation instead of being replayed through the HTTP engine.
+- **Sanitized Media File Names:** Illegal path characters (`/`, `\`, `:`, etc.) and control characters are stripped before temporary or output paths are constructed.
+- **HTML Guard Now Covers `.nextdm` Temp Files:** Rejects `text/html` responses for media filenames regardless of `.nextdm` / `.part` suffix.
+- **Accurate Update Checker & Hardened Installer:** Compares releases against the real running engine version, validates exact `.deb` filenames across `~/Downloads` and `~/Downloads/Programs`, uses `curl -fL --retry 2`, and checks archive magic before launch.
+
+### 🧪 Tests
+
+- Added live merged YouTube Shorts download integration coverage (`crates/media`) plus regression tests for interrupted, removed, and cancelled media jobs and `.nextdm` HTML protection (`crates/engine`).
+
+## [0.2.2] — 2026-11-21
+
+### 🛠 Fixed
+
+- **React Error #310 in Settings:** Moved backup and restore hooks to the top level of the component so opening the Settings dialog no longer crashes with a hook-order error.
+- Refreshed the Chromium and Firefox extension bundles and the APT repository for the v0.2.2 release.
+
+## [0.2.1] — 2026-11-21
+
+### 🛠 Fixed
+
+- **YouTube Cookie Conflict:** Resolved a cookie-argument conflict in the yt-dlp media bridge that could break YouTube extraction when browser cookies were supplied.
+- **Video Badge Positioning:** Moved the floating in-browser video badge away from the player's information button and added drag support so it can be repositioned freely.
+- Refreshed the Chromium and Firefox extension bundles and the APT repository for the v0.2.1 release.
+
 ## [0.2.0] — 2026-11-13
 
 ### 🎬 Embedded Media Extraction & Engine Guard

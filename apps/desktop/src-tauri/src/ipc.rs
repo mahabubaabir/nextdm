@@ -4,9 +4,9 @@ use std::io;
 use std::time::Duration;
 
 #[cfg(unix)]
-use std::path::Path;
-#[cfg(unix)]
 use nextdm_browser_host::ipc::socket_path;
+#[cfg(unix)]
+use std::path::Path;
 #[cfg(unix)]
 use tokio::net::{UnixListener, UnixStream};
 
@@ -81,7 +81,10 @@ pub fn spawn(app: AppHandle, engine: Engine) {
                 return;
             }
         };
-        info!("browser integration listening on 127.0.0.1:{}", WINDOWS_IPC_PORT);
+        info!(
+            "browser integration listening on 127.0.0.1:{}",
+            WINDOWS_IPC_PORT
+        );
 
         loop {
             match listener.accept().await {
@@ -206,9 +209,7 @@ async fn dispatch(app: &AppHandle, engine: &Engine, request: HostRequest) -> Hos
             }));
             res
         }
-        HostRequest::GetVersion => {
-            HostResponse::ok().with_version(env!("CARGO_PKG_VERSION"))
-        }
+        HostRequest::GetVersion => HostResponse::ok().with_version(env!("CARGO_PKG_VERSION")),
         HostRequest::ShowWindow => {
             show_main(app);
             HostResponse::ok()
@@ -239,13 +240,13 @@ async fn dispatch(app: &AppHandle, engine: &Engine, request: HostRequest) -> Hos
                 return HostResponse::ok();
             }
 
+            let err_url = url.clone();
             let mut spec = DownloadSpec::new(url);
             spec.file_name = filename.filter(|value| !value.trim().is_empty());
             spec.referrer = referrer.filter(|value| !value.trim().is_empty());
             spec.cookies = cookies.filter(|value| !value.trim().is_empty());
             if let Some(user_agent) = user_agent.filter(|value| !value.trim().is_empty()) {
-                spec.headers
-                    .insert("User-Agent".to_string(), user_agent);
+                spec.headers.insert("User-Agent".to_string(), user_agent);
             }
             spec.headers.extend(headers);
 
@@ -256,7 +257,18 @@ async fn dispatch(app: &AppHandle, engine: &Engine, request: HostRequest) -> Hos
                     let _ = tauri::Emitter::emit(app, "browser://download_added", &info);
                     HostResponse::ok().with_download(info.id.to_string())
                 }
-                Err(error) => HostResponse::error(format!("failed to queue download: {error}")),
+                Err(error) => {
+                    let error_msg = format!("failed to queue download: {error}");
+                    let _ = tauri::Emitter::emit(
+                        app,
+                        "browser://download_error",
+                        serde_json::json!({
+                            "url": err_url,
+                            "error": error_msg,
+                        }),
+                    );
+                    HostResponse::error(error_msg)
+                }
             }
         }
         HostRequest::ProbeMedia { url, .. } => match nextdm_media::ytdlp::probe(&url, None).await {

@@ -18,7 +18,15 @@ export function MediaDialog({
   cookies?: string;
   defaultDir: string;
   onClose: () => void;
-  onDownload: (url: string, formatId: string | null, fileStem: string, expectedSize?: number | null, cookies?: string | null) => void;
+  onDownload: (
+    url: string,
+    formatId: string | null,
+    fileStem: string,
+    expectedSize?: number | null,
+    cookies?: string | null,
+    formatKind?: string | null,
+    extension?: string | null,
+  ) => void;
 }) {
   const [url, setUrl] = useState("");
   const [info, setInfo] = useState<MediaInfo | null>(null);
@@ -99,7 +107,15 @@ export function MediaDialog({
     if (!info) return;
     const chosenFormat = selected ? info.formats.find((f) => f.formatId === selected) : null;
     const expectedSize = chosenFormat ? chosenFormat.filesize : null;
-    onDownload(info.webpageUrl || url.trim(), selected, info.title, expectedSize, cookies || null);
+    onDownload(
+      info.webpageUrl || url.trim(),
+      selected,
+      info.title,
+      expectedSize,
+      cookies || null,
+      chosenFormat ? chosenFormat.kind : null,
+      chosenFormat ? chosenFormat.extension : null,
+    );
     onClose();
   };
 

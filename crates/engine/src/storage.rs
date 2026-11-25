@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection, OptionalExtension, Row};
+use rusqlite::{Connection, OptionalExtension, Row, params};
 use uuid::Uuid;
 
 use crate::error::Result;
@@ -22,6 +22,9 @@ pub struct DownloadRecord {
     pub downloaded: u64,
     pub status: DownloadStatus,
     pub resumable: bool,
+    /// True when the file is produced by the external media helper (yt-dlp)
+    /// instead of the segmented HTTP engine.
+    pub media: bool,
     pub etag: Option<String>,
     pub last_modified: Option<String>,
     pub content_type: Option<String>,
@@ -56,6 +59,7 @@ impl DownloadRecord {
             downloaded: self.downloaded,
             status: self.status,
             resumable: self.resumable,
+            media: self.media,
             content_type: self.content_type.clone(),
             category: self.category.clone(),
             error: self.error.clone(),
@@ -116,6 +120,7 @@ impl Storage {
                 downloaded     INTEGER NOT NULL DEFAULT 0,
                 status         TEXT NOT NULL DEFAULT 'queued',
                 resumable      INTEGER NOT NULL DEFAULT 0,
+                media          INTEGER NOT NULL DEFAULT 0,
                 etag           TEXT,
                 last_modified  TEXT,
                 content_type   TEXT,
@@ -150,6 +155,29 @@ impl Storage {
             );
             "#,
         )?;
+
+        // Older databases predate the media flag. SQLite has no
+        // `ADD COLUMN IF NOT EXISTS`, so inspect the table first.
+        let has_media = {
+            let mut statement = conn.prepare("PRAGMA table_info(downloads)")?;
+            let mut rows = statement.query([])?;
+            let mut found = false;
+            while let Some(row) = rows.next()? {
+                let name: String = row.get(1)?;
+                if name == "media" {
+                    found = true;
+                    break;
+                }
+            }
+            found
+        };
+        if !has_media {
+            conn.execute(
+                "ALTER TABLE downloads ADD COLUMN media INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 
@@ -161,14 +189,14 @@ impl Storage {
             r#"
             INSERT INTO downloads (
                 id, url, final_url, file_name, directory, temp_path, total_size,
-                downloaded, status, resumable, etag, last_modified, content_type,
+                downloaded, status, resumable, media, etag, last_modified, content_type,
                 category, error, segments, headers, cookies, referrer, queue_id,
                 priority, max_connections, created_at, completed_at
             ) VALUES (
                 ?1, ?2, ?3, ?4, ?5, ?6, ?7,
-                ?8, ?9, ?10, ?11, ?12, ?13,
-                ?14, ?15, ?16, ?17, ?18, ?19, ?20,
-                ?21, ?22, ?23, ?24
+                ?8, ?9, ?10, ?11, ?12, ?13, ?14,
+                ?15, ?16, ?17, ?18, ?19, ?20, ?21,
+                ?22, ?23, ?24, ?25
             )
             ON CONFLICT(id) DO UPDATE SET
                 url = excluded.url,
@@ -180,6 +208,7 @@ impl Storage {
                 downloaded = excluded.downloaded,
                 status = excluded.status,
                 resumable = excluded.resumable,
+                media = excluded.media,
                 etag = excluded.etag,
                 last_modified = excluded.last_modified,
                 content_type = excluded.content_type,
@@ -205,6 +234,7 @@ impl Storage {
                 record.downloaded as i64,
                 record.status.as_str(),
                 record.resumable as i64,
+                record.media as i64,
                 record.etag,
                 record.last_modified,
                 record.content_type,
@@ -257,12 +287,7 @@ impl Storage {
         Ok(())
     }
 
-    pub fn set_status(
-        &self,
-        id: Uuid,
-        status: DownloadStatus,
-        error: Option<&str>,
-    ) -> Result<()> {
+    pub fn set_status(&self, id: Uuid, status: DownloadStatus, error: Option<&str>) -> Result<()> {
         let conn = self.conn.lock().expect("storage mutex poisoned");
         conn.execute(
             "UPDATE downloads SET status = ?1, error = ?2 WHERE id = ?3",
@@ -273,7 +298,10 @@ impl Storage {
 
     pub fn delete(&self, id: Uuid) -> Result<()> {
         let conn = self.conn.lock().expect("storage mutex poisoned");
-        conn.execute("DELETE FROM downloads WHERE id = ?1", params![id.to_string()])?;
+        conn.execute(
+            "DELETE FROM downloads WHERE id = ?1",
+            params![id.to_string()],
+        )?;
         Ok(())
     }
 
@@ -326,6 +354,7 @@ fn row_to_record(row: &Row<'_>) -> rusqlite::Result<DownloadRecord> {
     let completed_at: Option<String> = row.get("completed_at")?;
     let status: String = row.get("status")?;
     let resumable: i64 = row.get("resumable")?;
+    let media: i64 = row.get("media")?;
     let priority: i64 = row.get("priority")?;
     let total_size: Option<i64> = row.get("total_size")?;
     let downloaded: i64 = row.get("downloaded")?;
@@ -342,6 +371,7 @@ fn row_to_record(row: &Row<'_>) -> rusqlite::Result<DownloadRecord> {
         downloaded: downloaded.max(0) as u64,
         status: DownloadStatus::parse(&status),
         resumable: resumable != 0,
+        media: media != 0,
         etag: row.get("etag")?,
         last_modified: row.get("last_modified")?,
         content_type: row.get("content_type")?,

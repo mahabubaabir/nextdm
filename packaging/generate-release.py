@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 def generate():
     apt_dir = sys.argv[1] if len(sys.argv) > 1 else "packaging/apt"
-    version = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("VERSION", "0.2.2")
+    version = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("VERSION", "0.2.3")
     
     dists_dir = os.path.join(apt_dir, "dists/stable")
     date_str = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S UTC")
