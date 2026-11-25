@@ -6,13 +6,13 @@ Version: 0.2.5
 Architectures: amd64
 Components: main
 Description: NextDM Official APT Repository for Linux Mint & Ubuntu
-Date: Wed, 25 Nov 2026 07:35:11 UTC
+Date: Wed, 25 Nov 2026 07:36:24 UTC
 MD5Sum:
  8812d09758aa05d8b6b8cc0eb1a01ae7 697 main/binary-amd64/Packages
- d3935017ab5eeb045e7a019744afc7b4 445 main/binary-amd64/Packages.gz
+ 3384e7e4de488750df58f00c6d99a109 445 main/binary-amd64/Packages.gz
 SHA1:
  012641cce487814832408b2b8545f446b072f14c 697 main/binary-amd64/Packages
- 58e20bbb37cf1fa8ff71c1325e9441e6502d5c69 445 main/binary-amd64/Packages.gz
+ 8979abace694dcba81777b749611d369db7522bb 445 main/binary-amd64/Packages.gz
 SHA256:
  a8c843cb67b4c4e11cd2300fbebd0faf4a2d10f11ab8b57e83635122e3b29d5c 697 main/binary-amd64/Packages
- edff51cb896628682e19fb407d6da7a6632674f1d96d7f1cdbd43cf4ad4dd6c6 445 main/binary-amd64/Packages.gz
+ 19ae19381ea070f7ddcf2717669b05b5d64fbb52fb9f89cfa0b7feb26f7cd2d6 445 main/binary-amd64/Packages.gz
